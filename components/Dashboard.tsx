@@ -29,7 +29,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'chat' | 'summary'>('chat');
   const [showHistory, setShowHistory] = useState(false);
-  const publicLink = `resume-ai.vercel.app/${persona.identifier}`;
+  const publicLink = `rai-builder.vercel.app/${persona.identifier}`;
 
   const currentResumeEntry = savedResumes.find(r => r.persona_data.identifier === persona.identifier);
   const resumeId = currentResumeEntry?.id;
