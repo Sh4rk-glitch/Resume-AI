@@ -4,7 +4,7 @@ import { AppState, ResumeData, AIPersona } from './types';
 import Landing from './components/Landing';
 import ResumeUpload from './components/ResumeUpload';
 import Dashboard from './components/Dashboard';
-import PublicView from './components/publicview';
+import PublicView from './components/publicview_temp';
 import Auth from './components/Auth';
 import { supabase, getUserResumes, saveResume, getResumeByIdentifier } from './services/supabase';
 
