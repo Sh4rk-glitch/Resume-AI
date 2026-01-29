@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 
 interface LandingProps {
@@ -25,7 +26,8 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
       { threshold: 0.1 }
     );
 
-    Object.values(sectionRefs.current).forEach((ref) => {
+    const currentRefs = Object.values(sectionRefs.current) as (HTMLElement | null)[];
+    currentRefs.forEach((ref) => {
       if (ref) observer.observe(ref);
     });
 
@@ -33,7 +35,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
   }, []);
 
   const setRef = (id: string) => (el: HTMLElement | null) => {
-    sectionRefs.current[id] = el;
+    if (el) sectionRefs.current[id] = el;
   };
 
   const steps = [
@@ -66,7 +68,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
 
       {/* Navigation Header */}
       <nav className="relative z-50 w-full max-w-7xl mx-auto px-4 h-24 flex items-center justify-between">
-        <div className="flex items-center space-x-2 group cursor-pointer" onClick={() => window.scrollTo(0,0)}>
+        <div className="flex items-center space-x-2 group cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
           <div className="bg-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow-lg group-hover:rotate-12 transition-transform">
             RAI
           </div>
@@ -94,8 +96,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
       </nav>
 
       {/* Hero Section */}
-      <section className="relative z-10 flex flex-col items-center justify-center text-center max-w-5xl mx-auto px-4 pt-32 pb-64">
-        {/* Glow Spotlights */}
+      <section className="relative z-10 flex flex-col items-center justify-center text-center max-w-5xl mx-auto px-4 pt-32 pb-48">
         <div className="absolute top-0 -left-20 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-0 -right-20 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[120px] pointer-events-none"></div>
         
@@ -131,40 +132,71 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
         </div>
       </section>
 
-      {/* Feature Bento Grid */}
-      <section className="relative py-24 px-4 bg-slate-50 dark:bg-slate-900/50 border-y border-gray-100 dark:border-slate-800">
+      {/* Feature Bento Grid with Scroll Animation */}
+      <section id="features" ref={setRef('features')} className="relative py-32 px-4 bg-slate-50 dark:bg-slate-900/50 border-y border-gray-100 dark:border-slate-800">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="glass p-8 rounded-3xl border-indigo-500/10 hover:border-indigo-500/30 transition-all group">
-            <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">🤖</div>
-            <h4 className="font-bold mb-2 dark:text-white">AI Recruiting Agent</h4>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Your persona acts as a first-line interviewer for potential employers.</p>
-          </div>
-          <div className="glass p-8 rounded-3xl border-indigo-500/10 hover:border-indigo-500/30 transition-all group">
-            <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">📊</div>
-            <h4 className="font-bold mb-2 dark:text-white">Deep Context</h4>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Understands the 'why' behind your career choices, not just the 'what'.</p>
-          </div>
-          <div className="glass p-8 rounded-3xl border-indigo-500/10 hover:border-indigo-500/30 transition-all group">
-            <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">🔗</div>
-            <h4 className="font-bold mb-2 dark:text-white">Custom App Link</h4>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Replace your LinkedIn URL with a high-fidelity AI persona link.</p>
-          </div>
-          <div className="glass p-8 rounded-3xl border-indigo-500/10 hover:border-indigo-500/30 transition-all group">
-            <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">🔐</div>
-            <h4 className="font-bold mb-2 dark:text-white">Privacy First</h4>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Full control over who sees your persona and how much it reveals.</p>
-          </div>
+          {[
+            { icon: "🤖", title: "AI Recruiting Agent", desc: "Your persona acts as a first-line interviewer for potential employers.", id: "f1" },
+            { icon: "📊", title: "Deep Context", desc: "Understands the 'why' behind your career choices, not just the 'what'.", id: "f2" },
+            { icon: "🔗", title: "Custom App Link", desc: "Replace your LinkedIn URL with a high-fidelity AI persona link.", id: "f3" },
+            { icon: "🔐", title: "Privacy First", desc: "Full control over who sees your persona and how much it reveals.", id: "f4" }
+          ].map((feature, i) => (
+            <div 
+              key={feature.id}
+              className={`glass p-8 rounded-3xl border-indigo-500/10 hover:border-indigo-500/30 transition-all duration-1000 group ${
+                isVisible['features'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+              style={{ transitionDelay: `${i * 150}ms` }}
+            >
+              <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">{feature.icon}</div>
+              <h4 className="font-bold mb-2 dark:text-white">{feature.title}</h4>
+              <p className="text-sm text-gray-500 dark:text-slate-400">{feature.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* How it Works Section with Scroll Animation */}
+      <section id="how-it-works" ref={setRef('how-it-works')} className="py-32 px-4 max-w-7xl mx-auto">
+        <div className="text-center mb-24">
+          <h2 className="text-4xl md:text-6xl font-black dark:text-white mb-6 tracking-tight">The Synthesis Pipeline</h2>
+          <p className="text-gray-500 dark:text-slate-400 max-w-2xl mx-auto font-medium">Three steps to professional autonomy.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-16 relative">
+          {/* Connector Line (visible on desktop) */}
+          <div className="absolute top-1/2 left-0 w-full h-px bg-indigo-500/10 hidden md:block -z-10"></div>
+          
+          {steps.map((step, i) => (
+            <div 
+              key={step.id} 
+              className={`flex flex-col items-center text-center transition-all duration-1000 ${
+                isVisible['how-it-works'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+              style={{ transitionDelay: `${i * 200}ms` }}
+            >
+              <div className="w-20 h-20 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-3xl flex items-center justify-center text-3xl shadow-xl mb-8 group hover:scale-110 transition-transform">
+                {step.icon}
+              </div>
+              <h3 className="text-xl font-bold dark:text-white mb-4">{step.title}</h3>
+              <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed max-w-[250px]">
+                {step.description}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* Final CTA Section */}
-      <section className="relative py-64 px-4 flex flex-col items-center justify-center overflow-hidden">
+      <section id="final-cta" ref={setRef('final-cta')} className="relative py-64 px-4 flex flex-col items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-indigo-600 -z-10">
           <div className="absolute inset-0 opacity-20 grid-bg"></div>
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-600/50 to-indigo-900"></div>
         </div>
         
-        <div className="max-w-4xl text-center">
+        <div className={`max-w-4xl text-center transition-all duration-1000 ${
+          isVisible['final-cta'] ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        }`}>
           <h2 className="text-6xl md:text-9xl font-black text-white mb-16 tracking-tight leading-none">
             Stop sending documents. <br />
             <span className="opacity-30">Deploy agents.</span>
@@ -188,14 +220,9 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
             </div>
             <p className="text-sm text-gray-500 dark:text-slate-500 max-w-xs text-center md:text-left">The next evolution of professional identity. Building a standard for autonomous career representation.</p>
           </div>
-          <div className="flex flex-wrap justify-center gap-16 text-sm font-black text-gray-400 dark:text-slate-600 uppercase tracking-widest">
-            <a href="#" className="hover:text-indigo-500 transition-colors">Privacy</a>
-            <a href="#" className="hover:text-indigo-500 transition-colors">Security</a>
-            <a href="#" className="hover:text-indigo-500 transition-colors">Legal</a>
-          </div>
         </div>
         <div className="mt-24 text-center text-[10px] text-gray-300 dark:text-slate-800 font-black uppercase tracking-[0.5em]">
-          Evolved Professionally © 2025 • resume-ai.app
+          Evolved Professionally © 2025 • resume-ai.app • Built By Shourya Mishra
         </div>
       </footer>
 
