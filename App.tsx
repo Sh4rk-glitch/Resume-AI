@@ -4,7 +4,7 @@ import { AppState, ResumeData, AIPersona } from './types';
 import Landing from './components/Landing';
 import ResumeUpload from './components/ResumeUpload';
 import Dashboard from './components/Dashboard';
-import PublicView from './components/publicview.tsx';
+import PublicView from './components/publicview';
 import Auth from './components/Auth';
 import { supabase, getUserResumes, saveResume, getResumeByIdentifier } from './services/supabase';
 
@@ -35,42 +35,53 @@ const App: React.FC = () => {
     const handleInitialRoute = async () => {
       const path = window.location.pathname.split('/').filter(Boolean)[0];
       
-      if (path && path !== 'dashboard' && path !== 'auth' && path !== 'upload') {
-        const publicResume = await getResumeByIdentifier(path);
-        if (publicResume) {
-          setCurrentResume(publicResume.resume_data);
-          setCurrentPersona(publicResume.persona_data);
-          setCurrentResumeId(publicResume.id);
-          setAppState(AppState.PUBLIC_VIEW);
-          setIsInitializing(false);
-          return true;
+      // Reserved paths for internal app states
+      const reservedPaths = ['dashboard', 'auth', 'upload', 'callback'];
+      
+      if (path && !reservedPaths.includes(path.toLowerCase())) {
+        try {
+          const publicResume = await getResumeByIdentifier(path);
+          if (publicResume) {
+            setCurrentResume(publicResume.resume_data);
+            setCurrentPersona(publicResume.persona_data);
+            setCurrentResumeId(publicResume.id);
+            setAppState(AppState.PUBLIC_VIEW);
+            setIsInitializing(false);
+            return true;
+          }
+        } catch (error) {
+          console.error("Route resolution failed:", error);
         }
       }
       return false;
     };
 
     const initializeAuth = async () => {
-      const isPublicRoute = await handleInitialRoute();
-      if (isPublicRoute) return;
+      try {
+        const isPublicRoute = await handleInitialRoute();
+        if (isPublicRoute) return;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      if (session) {
-        await fetchUserHistory(session.user.id);
-      } else {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+        
+        if (currentSession) {
+          await fetchUserHistory(currentSession.user.id);
+        } else {
+          setIsInitializing(false);
+        }
+      } catch (err) {
+        console.error("Initialization error:", err);
         setIsInitializing(false);
       }
     };
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        // If we were in public view, we don't necessarily want to force redirect if they just logged in, 
-        // but for now let's keep it simple: login goes to dashboard.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      if (newSession) {
         if (appState !== AppState.PUBLIC_VIEW) {
-          fetchUserHistory(session.user.id);
+          fetchUserHistory(newSession.user.id);
         }
       } else {
         if (appState !== AppState.PUBLIC_VIEW) {
