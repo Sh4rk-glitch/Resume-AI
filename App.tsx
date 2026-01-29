@@ -31,11 +31,29 @@ const App: React.FC = () => {
     }
   }, [darkMode]);
 
+  // Shared function to fetch and route user history
+  const fetchUserHistory = useCallback(async (userId: string) => {
+    try {
+      const resumes = await getUserResumes(userId);
+      setSavedResumes(resumes || []);
+      if (resumes && resumes.length > 0) {
+        setCurrentResume(resumes[0].resume_data);
+        setCurrentPersona(resumes[0].persona_data);
+        setCurrentResumeId(resumes[0].id);
+        setAppState(AppState.DASHBOARD);
+      } else {
+        setAppState(AppState.UPLOADING);
+      }
+    } catch (err) {
+      console.error("History fetch failed:", err);
+    } finally {
+      setIsInitializing(false);
+    }
+  }, []);
+
   useEffect(() => {
     const handleInitialRoute = async () => {
       const path = window.location.pathname.split('/').filter(Boolean)[0];
-      
-      // Reserved paths for internal app states
       const reservedPaths = ['dashboard', 'auth', 'upload', 'callback'];
       
       if (path && !reservedPaths.includes(path.toLowerCase())) {
@@ -79,43 +97,32 @@ const App: React.FC = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      
       if (newSession) {
-        if (appState !== AppState.PUBLIC_VIEW) {
+        // Prevent interrupting public view
+        setAppState(current => {
+          if (current === AppState.PUBLIC_VIEW) return current;
           fetchUserHistory(newSession.user.id);
-        }
+          return current;
+        });
       } else {
-        if (appState !== AppState.PUBLIC_VIEW) {
-          setAppState(AppState.LANDING);
-          setSavedResumes([]);
-          setCurrentResume(null);
-          setCurrentPersona(null);
-          setCurrentResumeId(null);
-        }
+        // Only reset to landing if we were in a session-dependent state
+        setAppState(current => {
+          if (current === AppState.DASHBOARD || current === AppState.UPLOADING) {
+            setSavedResumes([]);
+            setCurrentResume(null);
+            setCurrentPersona(null);
+            setCurrentResumeId(null);
+            return AppState.LANDING;
+          }
+          return current;
+        });
         setIsInitializing(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [appState]);
-
-  const fetchUserHistory = async (userId: string) => {
-    try {
-      const resumes = await getUserResumes(userId);
-      setSavedResumes(resumes || []);
-      if (resumes && resumes.length > 0) {
-        setCurrentResume(resumes[0].resume_data);
-        setCurrentPersona(resumes[0].persona_data);
-        setCurrentResumeId(resumes[0].id);
-        setAppState(prev => (prev === AppState.AUTH || prev === AppState.UPLOADING) ? AppState.DASHBOARD : prev);
-      } else {
-        setAppState(prev => prev === AppState.AUTH ? AppState.UPLOADING : prev);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsInitializing(false);
-    }
-  };
+  }, [fetchUserHistory]);
 
   const handleStart = () => {
     if (session) {
