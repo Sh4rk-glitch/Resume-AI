@@ -1,0 +1,7 @@
+{
+  "name": "Resume AI",
+  "description": "Transform your resume into a personalized AI assistant. Extract skills, generate a professional persona, and chat with your career history.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
