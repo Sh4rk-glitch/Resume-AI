@@ -1,20 +1,15 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+### Resume AI
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/drive/1Ga_VHMHr_-uYuT2ZJSBh9wVtQ0JsJ3kO
-
-## Run Locally
-
-**Prerequisites:**  Node.js
+Resume AI is a platform that transforms any résumé into a fully interactive AI version of yourself. Upload your resume, and the system automatically parses your experience, skills, education, and achievements—then builds a personalized AI assistant that represents your professional background.
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Key Features
+- Upload your résumé (PDF, DOCX, or text)
+- Automatic parsing of skills, experience, education, and achievements
+- AI persona generation that reflects your tone, expertise, and career focus
+- Public shareable link: r.ai/[identifier]
+- Interactive Q&A about your background
+- Interview prep, summaries, and tailored responses based on your résumé
+
+### Why It Exists
+Traditional résumés are static. Resume AI makes them dynamic. Instead of reading a document, people can talk to your experience—getting instant answers, insights, and context that a résumé alone can’t provide.
