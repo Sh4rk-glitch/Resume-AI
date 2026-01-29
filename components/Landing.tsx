@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 
 interface LandingProps {
@@ -108,7 +107,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
         <h1 className="text-7xl md:text-9xl font-black tracking-tighter dark:text-white mb-8 animate-fade-in-up leading-[0.9]">
           The Resume <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] animate-gradient italic">
-            Autonomous.
+            AI.
           </span>
         </h1>
         
