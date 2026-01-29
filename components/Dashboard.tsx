@@ -29,14 +29,17 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'chat' | 'summary'>('chat');
   const [showHistory, setShowHistory] = useState(false);
-  const publicLink = `rai-builder.vercel.app/${persona.identifier}`;
+  
+  // Dynamic host detection for the public link
+  const host = window.location.host;
+  const publicLink = `${host}/${persona.identifier}`;
 
   const currentResumeEntry = savedResumes.find(r => r.persona_data.identifier === persona.identifier);
   const resumeId = currentResumeEntry?.id;
 
   const copyLink = () => {
-    navigator.clipboard.writeText(publicLink);
-    alert('Link copied to clipboard!');
+    navigator.clipboard.writeText(`https://${publicLink}`);
+    alert('Public Persona link copied to clipboard!');
   };
 
   return (
@@ -60,7 +63,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               Home
             </button>
 
-            <div className="hidden lg:flex items-center bg-gray-100 dark:bg-slate-800 px-4 py-2 rounded-xl text-sm font-bold text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700">
+            <div className="hidden lg:flex items-center bg-gray-100 dark:bg-slate-800 px-4 py-2 rounded-xl text-[10px] font-black uppercase text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700 tracking-widest">
               <span className="w-2 h-2 bg-green-500 rounded-full mr-3 animate-pulse"></span>
               {publicLink}
             </div>

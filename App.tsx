@@ -4,14 +4,16 @@ import { AppState, ResumeData, AIPersona } from './types';
 import Landing from './components/Landing';
 import ResumeUpload from './components/ResumeUpload';
 import Dashboard from './components/Dashboard';
+import PublicView from './components/publicview.tsx';
 import Auth from './components/Auth';
-import { supabase, getUserResumes, saveResume } from './services/supabase';
+import { supabase, getUserResumes, saveResume, getResumeByIdentifier } from './services/supabase';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.LANDING);
   const [savedResumes, setSavedResumes] = useState<any[]>([]);
   const [currentResume, setCurrentResume] = useState<ResumeData | null>(null);
   const [currentPersona, setCurrentPersona] = useState<AIPersona | null>(null);
+  const [currentResumeId, setCurrentResumeId] = useState<string | null>(null);
   const [session, setSession] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [darkMode, setDarkMode] = useState(() => {
@@ -30,30 +32,60 @@ const App: React.FC = () => {
   }, [darkMode]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const handleInitialRoute = async () => {
+      const path = window.location.pathname.split('/').filter(Boolean)[0];
+      
+      if (path && path !== 'dashboard' && path !== 'auth' && path !== 'upload') {
+        const publicResume = await getResumeByIdentifier(path);
+        if (publicResume) {
+          setCurrentResume(publicResume.resume_data);
+          setCurrentPersona(publicResume.persona_data);
+          setCurrentResumeId(publicResume.id);
+          setAppState(AppState.PUBLIC_VIEW);
+          setIsInitializing(false);
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const initializeAuth = async () => {
+      const isPublicRoute = await handleInitialRoute();
+      if (isPublicRoute) return;
+
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       if (session) {
-        fetchUserHistory(session.user.id);
+        await fetchUserHistory(session.user.id);
       } else {
         setIsInitializing(false);
       }
-    });
+    };
+
+    initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        fetchUserHistory(session.user.id);
+        // If we were in public view, we don't necessarily want to force redirect if they just logged in, 
+        // but for now let's keep it simple: login goes to dashboard.
+        if (appState !== AppState.PUBLIC_VIEW) {
+          fetchUserHistory(session.user.id);
+        }
       } else {
-        setAppState(AppState.LANDING);
-        setSavedResumes([]);
-        setCurrentResume(null);
-        setCurrentPersona(null);
+        if (appState !== AppState.PUBLIC_VIEW) {
+          setAppState(AppState.LANDING);
+          setSavedResumes([]);
+          setCurrentResume(null);
+          setCurrentPersona(null);
+          setCurrentResumeId(null);
+        }
         setIsInitializing(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [appState]);
 
   const fetchUserHistory = async (userId: string) => {
     try {
@@ -62,7 +94,7 @@ const App: React.FC = () => {
       if (resumes && resumes.length > 0) {
         setCurrentResume(resumes[0].resume_data);
         setCurrentPersona(resumes[0].persona_data);
-        // We stay in LANDING initially if they just refreshed, or we go to DASHBOARD if they were in AUTH
+        setCurrentResumeId(resumes[0].id);
         setAppState(prev => (prev === AppState.AUTH || prev === AppState.UPLOADING) ? AppState.DASHBOARD : prev);
       } else {
         setAppState(prev => prev === AppState.AUTH ? AppState.UPLOADING : prev);
@@ -104,6 +136,7 @@ const App: React.FC = () => {
       setSavedResumes(prev => [saved, ...prev]);
       setCurrentResume(data.resume);
       setCurrentPersona(data.persona);
+      setCurrentResumeId(saved.id);
       setAppState(AppState.DASHBOARD);
     } catch (err) {
       console.error('Error saving resume:', err);
@@ -117,6 +150,7 @@ const App: React.FC = () => {
     const selected = savedResumes[index];
     setCurrentResume(selected.resume_data);
     setCurrentPersona(selected.persona_data);
+    setCurrentResumeId(selected.id);
   };
 
   const handleReset = async () => {
@@ -125,8 +159,9 @@ const App: React.FC = () => {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center dark:bg-slate-950">
-        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center dark:bg-slate-950">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-2xl animate-spin mb-4"></div>
+        <p className="text-[10px] font-black uppercase text-indigo-500 tracking-[0.3em] animate-pulse">Neural Path Resolving...</p>
       </div>
     );
   }
@@ -149,6 +184,16 @@ const App: React.FC = () => {
 
       {appState === AppState.UPLOADING && (
         <ResumeUpload onComplete={handleDataParsed} onBack={() => setAppState(AppState.LANDING)} />
+      )}
+
+      {appState === AppState.PUBLIC_VIEW && currentResume && currentPersona && currentResumeId && (
+        <PublicView
+          resume={currentResume}
+          persona={currentPersona}
+          resumeId={currentResumeId}
+          toggleDarkMode={toggleDarkMode}
+          darkMode={darkMode}
+        />
       )}
 
       {appState === AppState.DASHBOARD && currentResume && currentPersona && (

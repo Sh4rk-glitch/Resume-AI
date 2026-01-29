@@ -35,6 +35,17 @@ export const getUserResumes = async (userId: string) => {
   return data;
 };
 
+export const getResumeByIdentifier = async (identifier: string) => {
+  const { data, error } = await supabase
+    .from('resumes')
+    .select('*')
+    .eq('identifier', identifier)
+    .single();
+  
+  if (error) return null;
+  return data;
+};
+
 export const getChatHistory = async (resumeId: string): Promise<ChatMessage[]> => {
   const { data, error } = await supabase
     .from('chat_messages')
