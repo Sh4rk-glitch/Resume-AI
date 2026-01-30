@@ -8,14 +8,16 @@ interface ChatPanelProps {
   resume: ResumeData;
   persona: AIPersona;
   resumeId?: string;
+  showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+  showConfirm: (title: string, msg: string, onConfirm: () => void) => void;
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showToast, showConfirm }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false); // Waiting for stream start
+  const [isTyping, setIsTyping] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isWriting, setIsWriting] = useState(false); // Typewriter is active
+  const [isWriting, setIsWriting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const typewriterQueue = useRef<string>('');
@@ -44,13 +46,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
     loadHistory();
   }, [resumeId, persona.name]);
 
-  // High-Fidelity Typewriter Loop
   useEffect(() => {
     let interval: number;
     if (isWriting || typewriterQueue.current.length > 0) {
       interval = window.setInterval(() => {
         if (typewriterQueue.current.length > 0 && typewriterTargetId.current) {
-          // Pull 1-2 characters at a time for maximum smoothness
           const count = typewriterQueue.current.length > 50 ? 3 : 1; 
           const nextChars = typewriterQueue.current.slice(0, count);
           typewriterQueue.current = typewriterQueue.current.slice(count);
@@ -68,7 +68,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
           }
           typewriterTargetId.current = null;
         }
-      }, 15); // Faster, smoother tick rate (60fps target)
+      }, 15);
     }
     return () => clearInterval(interval);
   }, [isWriting, isTyping, resumeId, messages]);
@@ -81,17 +81,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
 
   const resetChat = async () => {
     if (!resumeId) return;
-    if (confirm("Resetting will clear the persona's conversational memory. Continue?")) {
-      await clearChatHistory(resumeId);
-      const welcome = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `Neural bridge reset. Persona **${persona.name}** is at baseline.`,
-        timestamp: new Date()
-      } as ChatMessage;
-      setMessages([welcome]);
-      saveChatMessage(resumeId, welcome);
-    }
+    
+    showConfirm(
+      "Reset Brain Link", 
+      "Resetting will clear the persona's conversational memory. This cannot be undone. Proceed?", 
+      async () => {
+        await clearChatHistory(resumeId);
+        const welcome = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `Neural bridge reset. Persona **${persona.name}** is at baseline.`,
+          timestamp: new Date()
+        } as ChatMessage;
+        setMessages([welcome]);
+        saveChatMessage(resumeId, welcome);
+        showToast("Neural bridge reset successful.");
+      }
+    );
   };
 
   const handleFeedback = async (id: string, feedback: 'like' | 'dislike') => {
@@ -99,6 +105,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
     const newFeedback = currentMessage?.feedback === feedback ? null : feedback;
     setMessages(prev => prev.map(m => m.id === id ? { ...m, feedback: newFeedback } : m));
     await updateMessageFeedback(id, newFeedback);
+    if (newFeedback) showToast("Feedback recorded. Refining model...");
   };
 
   const renderContent = (content: string) => {
@@ -124,7 +131,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
-    setIsTyping(true); // Start "Thinking" pulse
+    setIsTyping(true);
     setIsWriting(true); 
     
     await saveChatMessage(resumeId, userMessage);
@@ -147,13 +154,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
       const stream = chatWithPersonaStream(input, history, resume, persona);
       
       for await (const chunk of stream) {
-        setIsTyping(false); // Stop "Thinking" pulse as soon as first token arrives
+        setIsTyping(false);
         typewriterQueue.current += chunk;
       }
       
     } catch (err) {
       console.error(err);
       setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: "The neural link was interrupted. Please try again." } : m));
+      showToast("Connection interrupted.", "error");
     } finally {
       setIsTyping(false);
     }
@@ -161,7 +169,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-slate-800 flex-1 flex flex-col overflow-hidden">
-      {/* Header Toolbar */}
       <div className="px-8 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-gray-50/30 dark:bg-slate-900/50">
         <div className="flex items-center space-x-3">
            <span className={`w-2 h-2 rounded-full ${isWriting ? 'bg-indigo-500 animate-pulse' : 'bg-green-500'}`}></span>
@@ -177,11 +184,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
         </button>
       </div>
 
-      {/* Messages Area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 scroll-smooth custom-scrollbar">
         {messages.map((msg, idx) => (
           <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-fade-in-up`}>
-            {/* Note: Removed cursor-target from the bubble to prevent excessive cursor expansion */}
             <div className={`max-w-[85%] rounded-[2rem] p-6 shadow-sm border transition-all ${
                 msg.role === 'user' 
                   ? 'bg-indigo-600 text-white rounded-br-none border-indigo-500' 
@@ -223,7 +228,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId }) => {
         ))}
       </div>
 
-      {/* Input Area */}
       <div className="p-6 md:p-8 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 backdrop-blur-sm">
         <form onSubmit={handleSend} className="relative">
           <input

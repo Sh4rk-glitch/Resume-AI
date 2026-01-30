@@ -10,9 +10,11 @@ interface PublicViewProps {
   resumeId: string;
   toggleDarkMode: () => void;
   darkMode: boolean;
+  showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+  showConfirm: (title: string, msg: string, onConfirm: () => void) => void;
 }
 
-const PublicView: React.FC<PublicViewProps> = ({ resume, persona, resumeId, toggleDarkMode, darkMode }) => {
+const PublicView: React.FC<PublicViewProps> = ({ resume, persona, resumeId, toggleDarkMode, darkMode, showToast, showConfirm }) => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col transition-colors">
       <header className="bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800 h-20 px-6 flex items-center justify-between sticky top-0 z-50">
@@ -41,7 +43,6 @@ const PublicView: React.FC<PublicViewProps> = ({ resume, persona, resumeId, togg
       </header>
 
       <main className="max-w-7xl mx-auto w-full flex-1 p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden">
-        {/* Profile Sidebar */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-gray-100 dark:border-slate-800">
              <div className="flex flex-col items-center text-center mb-8">
@@ -76,11 +77,14 @@ const PublicView: React.FC<PublicViewProps> = ({ resume, persona, resumeId, togg
           </div>
         </div>
 
-        {/* Interaction Hub */}
         <div className="lg:col-span-8 h-[calc(100vh-160px)] flex flex-col">
-          <ChatPanel resume={resume} persona={persona} resumeId={resumeId} />
-          
-          {/* Mobile Summary fallback */}
+          <ChatPanel 
+            resume={resume} 
+            persona={persona} 
+            resumeId={resumeId} 
+            showToast={showToast}
+            showConfirm={showConfirm}
+          />
           <div className="lg:hidden mt-8">
             <PersonaSummary resume={resume} persona={persona} />
           </div>

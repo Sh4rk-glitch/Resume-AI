@@ -14,6 +14,8 @@ interface DashboardProps {
   onHome: () => void;
   toggleDarkMode: () => void;
   darkMode: boolean;
+  showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+  showConfirm: (title: string, msg: string, onConfirm: () => void) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -25,12 +27,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   onReset, 
   onHome,
   toggleDarkMode, 
-  darkMode 
+  darkMode,
+  showToast,
+  showConfirm
 }) => {
   const [activeTab, setActiveTab] = useState<'chat' | 'summary'>('chat');
   const [showHistory, setShowHistory] = useState(false);
   
-  // Dynamic host detection for the public link
   const host = window.location.host;
   const publicLink = `${host}/${persona.identifier}`;
 
@@ -39,12 +42,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const copyLink = () => {
     navigator.clipboard.writeText(`https://${publicLink}`);
-    alert('Public Persona link copied to clipboard!');
+    showToast('Public link copied to clipboard!');
   };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col transition-colors">
-      {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center space-x-4 cursor-target group" onClick={onHome}>
@@ -87,7 +89,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             </button>
 
             <button 
-              onClick={onReset}
+              onClick={() => showConfirm('Logout', 'Are you sure you want to end your session?', onReset)}
               className="px-4 py-2 bg-red-50 dark:bg-red-900/10 text-xs font-black text-red-600 dark:text-red-400 rounded-lg border border-red-100 dark:border-red-900/20 hover:bg-red-100 transition-colors uppercase tracking-widest cursor-target"
             >
               Logout
@@ -97,7 +99,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden">
-        {/* Left Sidebar - Persona Info */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-slate-800 cursor-target">
             <div className="flex items-center space-x-6 mb-8">
@@ -182,10 +183,15 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Right Content Area */}
         <div className="lg:col-span-8 h-[calc(100vh-160px)] flex flex-col">
           {activeTab === 'chat' ? (
-            <ChatPanel resume={resume} persona={persona} resumeId={resumeId} />
+            <ChatPanel 
+              resume={resume} 
+              persona={persona} 
+              resumeId={resumeId} 
+              showToast={showToast}
+              showConfirm={showConfirm}
+            />
           ) : (
             <PersonaSummary resume={resume} persona={persona} />
           )}

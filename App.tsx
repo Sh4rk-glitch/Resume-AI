@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard';
 import PublicView from './components/publicview_temp';
 import Auth from './components/Auth';
 import TargetCursor from './components/TargetCursor';
+import NotificationContainer from './components/NotificationContainer';
 import { supabase, getUserResumes, saveResume, getResumeByIdentifier } from './services/supabase';
 
 const App: React.FC = () => {
@@ -22,6 +23,19 @@ const App: React.FC = () => {
            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
 
+  // Notification State
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  }, []);
+
+  const showConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({ title, message, onConfirm });
+  }, []);
+
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -32,7 +46,6 @@ const App: React.FC = () => {
     }
   }, [darkMode]);
 
-  // Shared function to fetch and route user history
   const fetchUserHistory = useCallback(async (userId: string, shouldRoute: boolean = false) => {
     try {
       const resumes = await getUserResumes(userId);
@@ -89,7 +102,6 @@ const App: React.FC = () => {
         setSession(currentSession);
         
         if (currentSession) {
-          // On initial load, we DO want to route if a session exists
           await fetchUserHistory(currentSession.user.id, true);
         } else {
           setIsInitializing(false);
@@ -106,25 +118,17 @@ const App: React.FC = () => {
       setSession(newSession);
       
       if (newSession) {
-        // We only want to trigger navigation logic on explicit sign-in or session start.
-        // Background events like TOKEN_REFRESHED (triggered on window focus) should not force navigation.
         const isEntryEvent = event === 'SIGNED_IN' || event === 'INITIAL_SESSION';
-        
         setAppState(current => {
-          // Never interrupt public view
           if (current === AppState.PUBLIC_VIEW) return current;
-          
-          // Only fetch history and potentially route if it's a primary auth event
           if (isEntryEvent) {
             fetchUserHistory(newSession.user.id, true);
           } else {
-            // Just refresh data in background without changing the current page (AppState)
             fetchUserHistory(newSession.user.id, false);
           }
           return current;
         });
       } else {
-        // Only reset to landing if we were in a session-dependent state
         setAppState(current => {
           if (current === AppState.DASHBOARD || current === AppState.UPLOADING) {
             setSavedResumes([]);
@@ -174,13 +178,15 @@ const App: React.FC = () => {
       setCurrentPersona(data.persona);
       setCurrentResumeId(saved.id);
       setAppState(AppState.DASHBOARD);
+      showToast("Persona synthesized successfully!");
     } catch (err) {
       console.error('Error saving resume:', err);
       setCurrentResume(data.resume);
       setCurrentPersona(data.persona);
       setAppState(AppState.DASHBOARD);
+      showToast("Persona synthesized with offline fallback.", "info");
     }
-  }, [session]);
+  }, [session, showToast]);
 
   const selectPersona = (index: number) => {
     const selected = savedResumes[index];
@@ -211,6 +217,12 @@ const App: React.FC = () => {
         parallaxOn={true}
         hoverDuration={0.3}
       />
+
+      <NotificationContainer 
+        toast={notification} 
+        confirm={confirmDialog} 
+        onCloseConfirm={() => setConfirmDialog(null)} 
+      />
       
       {appState === AppState.LANDING && (
         <Landing 
@@ -237,6 +249,8 @@ const App: React.FC = () => {
           resumeId={currentResumeId}
           toggleDarkMode={toggleDarkMode}
           darkMode={darkMode}
+          showToast={showToast}
+          showConfirm={showConfirm}
         />
       )}
 
@@ -251,6 +265,8 @@ const App: React.FC = () => {
           onHome={() => setAppState(AppState.LANDING)}
           toggleDarkMode={toggleDarkMode}
           darkMode={darkMode}
+          showToast={showToast}
+          showConfirm={showConfirm}
         />
       )}
     </div>
