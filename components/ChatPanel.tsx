@@ -150,7 +150,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     setMessages(prev => [...prev, newAssistantMessage]);
 
     try {
-      // Exclude current empty message and ensure roles alternate
+      // Create clean history for the API
       const history = messages
         .filter(m => m.content && m.content.trim() !== '')
         .map(m => ({ role: m.role, content: m.content }));
@@ -163,13 +163,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
       }
       
     } catch (err: any) {
-      console.error("Chat Panel Error:", err);
-      const friendlyError = err.message.includes("API_KEY") 
-        ? "Neural link failed: Configuration Missing. Check your Vercel API_KEY."
-        : `The neural link was interrupted: ${err.message}`;
-        
-      setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: friendlyError } : m));
-      showToast("Connection failed.", "error");
+      console.error("Communication Failure:", err);
+      
+      let errorMessage = "The neural link was interrupted. Please try again.";
+      
+      if (err.message === "API_KEY_MISSING") {
+        errorMessage = "CRITICAL: API_KEY is missing. Please configure your Vercel Environment Variables and redeploy.";
+      } else if (err.message.includes("403") || err.message.includes("permission")) {
+        errorMessage = "The neural link was denied (403). Ensure your Gemini API Key is valid and active.";
+      } else if (err.message.includes("safety")) {
+        errorMessage = "The persona refused this prompt due to internal safety filters.";
+      }
+
+      setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: errorMessage } : m));
+      showToast("Link Error.", "error");
     } finally {
       setIsTyping(false);
     }

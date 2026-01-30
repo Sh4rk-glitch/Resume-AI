@@ -5,8 +5,8 @@ import { ResumeData, AIPersona } from "../types";
 const getAI = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    console.error("CRITICAL: API_KEY is missing from process.env. Ensure it is set in Vercel Environment Variables.");
-    throw new Error("AI Configuration Missing. Please check the server environment.");
+    console.error("CRITICAL ERROR: API_KEY environment variable is missing.");
+    throw new Error("API_KEY_MISSING");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -117,59 +117,60 @@ export async function* chatWithPersonaStream(
   persona: AIPersona
 ) {
   const ai = getAI();
-  // Using 2.5 Flash Lite for maximum regional stability on Edge/Cloud deployments
-  const modelName = 'gemini-2.5-flash-lite-latest';
+  // Using gemini-3-flash-preview as the most reliable general-purpose model
+  const modelName = 'gemini-3-flash-preview';
 
   /**
-   * GEMINI SDK HISTORY RULES:
-   * 1. First message MUST be 'user'.
-   * 2. Roles MUST alternate 'user' -> 'model' -> 'user'.
+   * STRICT CHAT PROTOCOL RULES:
+   * 1. History must start with a 'user' message.
+   * 2. Roles must alternate strictly (user -> model -> user).
+   * 3. History must end with a 'model' message because the new 'message' param is 'user'.
    */
-  const mappedHistory = [];
+  const filteredHistory = [];
   let lastRoleAdded = null;
 
-  // Filter out any messages that aren't alternating correctly
   for (const h of history) {
     const apiRole = h.role === 'assistant' ? 'model' : 'user';
     
-    // Rule: First message in history must be user. 
-    // If our history starts with a model (e.g. welcome message), we skip it to satisfy SDK.
-    if (mappedHistory.length === 0 && apiRole === 'model') continue;
+    // Rule 1: History must start with a user message. Skip if the first is 'model'.
+    if (filteredHistory.length === 0 && apiRole === 'model') continue;
     
-    // Rule: Strict alternation.
+    // Rule 2: Strict alternation. Skip if same role as last.
     if (apiRole === lastRoleAdded) continue;
+    
+    // Rule 3: No empty content.
     if (!h.content || h.content.trim() === '') continue;
 
-    mappedHistory.push({
+    filteredHistory.push({
       role: apiRole,
       parts: [{ text: h.content }]
     });
     lastRoleAdded = apiRole;
   }
 
-  // Ensure history ends with 'model' so that the new 'user' message alternates correctly.
-  if (mappedHistory.length > 0 && mappedHistory[mappedHistory.length - 1].role === 'user') {
-    mappedHistory.pop();
+  // Final validation: Ensure history ends with 'model' so that the new 'user' message alternates correctly.
+  if (filteredHistory.length > 0 && filteredHistory[filteredHistory.length - 1].role === 'user') {
+    filteredHistory.pop();
   }
 
   const chat = ai.chats.create({
     model: modelName,
-    history: mappedHistory,
+    history: filteredHistory,
     config: {
       systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}.
-      Narrative Context: ${persona.description}.
+      Your synthesized context: ${persona.description}.
       
-      CAREER DATA:
-      - Title: ${resumeData.title}
-      - Summary: ${resumeData.summary}
-      - Skills: ${resumeData.skills.join(', ')}
-      - History: ${JSON.stringify(resumeData.experience)}
+      CORE KNOWLEDGE (Resume Data):
+      - Current Title: ${resumeData.title}
+      - Career Summary: ${resumeData.summary}
+      - Tech/Skill Stack: ${resumeData.skills.join(', ')}
+      - Full History: ${JSON.stringify(resumeData.experience)}
       
-      STRICT OPERATING PARAMETERS:
-      - Answer ONLY based on the resume data provided.
-      - If a question is outside your professional scope, clarify that as ${persona.name}.
-      - Maintain persona tone consistently.
-      - Be succinct and professional.`,
+      OPERATIONAL DIRECTIVES:
+      - Answer recruiter and peer questions based ONLY on the provided resume.
+      - If details are missing, bridge using the defined Persona Tone but do not invent jobs.
+      - Maintain persona identity at all times.
+      - Be succinct, professional, and high-impact.`,
     }
   });
 
@@ -177,15 +178,14 @@ export async function* chatWithPersonaStream(
     const result = await chat.sendMessageStream({ message });
     for await (const chunk of result) {
       const response = chunk as GenerateContentResponse;
-      const text = response.text;
-      if (text) {
-        yield text;
+      if (response.text) {
+        yield response.text;
       }
     }
   } catch (error: any) {
-    console.error("Gemini Stream Protocol Error:", error);
-    // Log the specific error message to help the developer diagnose Vercel issues
-    const errorMessage = error?.message || "Unknown API Error";
-    throw new Error(`Neural Link Error: ${errorMessage}`);
+    console.error("Gemini Protocol Failure:", error);
+    // Extract a more meaningful error if possible
+    const detailedError = error?.message || "Internal Service Error";
+    throw new Error(detailedError);
   }
 }
