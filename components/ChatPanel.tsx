@@ -86,15 +86,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
       const welcome = { id: crypto.randomUUID(), role: 'assistant', content: `Neural bridge reset.`, timestamp: new Date() } as ChatMessage;
       setMessages([welcome]);
       saveChatMessage(resumeId, welcome);
-      showToast("Neural bridge reset successful.");
+      showToast("Neural bridge bridge reset successful.");
     });
-  };
-
-  const handleFeedback = async (id: string, feedback: 'like' | 'dislike') => {
-    const currentMessage = messages.find(m => m.id === id);
-    const newFeedback = currentMessage?.feedback === feedback ? null : feedback;
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, feedback: newFeedback } : m));
-    await updateMessageFeedback(id, newFeedback);
   };
 
   const renderContent = (content: string) => {
@@ -131,12 +124,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
         typewriterQueue.current += chunk;
       }
     } catch (err: any) {
-      let errorMessage = "The neural link was interrupted. Please check your connection.";
+      console.error("Chat Error:", err);
+      let errorMessage = `Neural Link Error: ${err.message || "Unknown Connection Interruption"}`;
+      
       if (err.message === "NEEDS_KEY_SELECTION") {
-        errorMessage = "CRITICAL: No Gemini API Key detected. Please use the 'Connect Gemini Engine' button below to select a paid project key.";
+        errorMessage = "CRITICAL: No valid Gemini API Key detected. If you are on Vercel, ensure the API_KEY env var is set and you have redeployed. If you are in AI Studio, use the 'Connect' button.";
       }
+      
       setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: errorMessage } : m));
-      showToast("Connection failed.", "error");
+      showToast("Neural link failed.", "error");
     } finally {
       setIsTyping(false);
     }
