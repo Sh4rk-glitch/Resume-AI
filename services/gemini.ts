@@ -2,7 +2,13 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY is not configured in environment variables.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
   const ai = getAI();
@@ -31,8 +37,8 @@ OUTPUT FORMAT: Strict JSON only. No markdown formatting.
         
 PERSONA GENERATION RULES:
 1. 'name': Use the user's full name if found, otherwise 'Professional Persona'.
-2. 'tone': Describe their professional voice (e.g., 'Visionary and Analytical', 'Empathetic and Strategic').
-3. 'identifier': A unique URL-safe slug (e.g., 'jane-doe-ux').
+2. 'tone': Describe their professional voice (e.g., 'Visionary and Analytical').
+3. 'identifier': A unique URL-safe slug.
 4. 'exampleResponses': 3 short professional questions a recruiter might ask.
 
 RESUME EXTRACTION RULES:
@@ -115,43 +121,64 @@ export async function* chatWithPersonaStream(
   persona: AIPersona
 ) {
   const ai = getAI();
-  // Using gemini-3-flash-preview for maximum stability and speed
   const model = 'gemini-3-flash-preview';
 
-  // Map history roles to Google's expected types ('assistant' -> 'model')
-  const mappedHistory = history.map(h => ({
-    role: h.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: h.content }]
-  }));
+  // GEMINI HISTORY RULES:
+  // 1. Roles must strictly alternate: user -> model -> user -> model
+  // 2. Cannot have two consecutive messages with the same role.
+  // 3. Current message (sent via sendMessageStream) acts as the NEW 'user' turn.
+  
+  const mappedHistory = [];
+  let lastRole = null;
+
+  for (const h of history) {
+    const role = h.role === 'assistant' ? 'model' : 'user';
+    // Skip if role is same as last to maintain alternation integrity
+    if (role === lastRole) continue;
+    if (!h.content || h.content.trim() === '') continue;
+
+    mappedHistory.push({
+      role,
+      parts: [{ text: h.content }]
+    });
+    lastRole = role;
+  }
+
+  // Ensure history ends with 'model' so current 'user' message alternates correctly
+  if (mappedHistory.length > 0 && mappedHistory[mappedHistory.length - 1].role === 'user') {
+    mappedHistory.pop();
+  }
 
   const chat = ai.chats.create({
     model,
     history: mappedHistory,
     config: {
-      systemInstruction: `You are ${persona.name}, a digital professional persona.
-      Your tone profile: ${persona.tone}.
-      Your core narrative: ${persona.description}.
-      Strengths: ${persona.strengths.join(', ')}.
-      Expertise: ${persona.expertise.join(', ')}.
+      systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}. Description: ${persona.description}.
+      You strictly represent the career history of the user as described in their resume.
       
-      CONTEXT:
-      Summary: ${resumeData.summary}
-      History: ${JSON.stringify(resumeData.experience)}
-      Technical Stack: ${resumeData.skills.join(', ')}
+      Resume Data:
+      - Summary: ${resumeData.summary}
+      - Tech Stack: ${resumeData.skills.join(', ')}
+      - Experience: ${JSON.stringify(resumeData.experience)}
       
-      INTERACTION PROTOCOL:
-      - Strictly adhere to provided resume facts.
-      - If asked about skills or roles not listed, clarify that you represent the professional history of the user.
-      - Maintain the defined persona tone at all times.
-      - Keep responses professional yet conversational.`,
+      Rules:
+      - Never hallucinate roles not in the resume.
+      - Maintain persona at all times.
+      - Be concise and professional.`,
     }
   });
 
-  const result = await chat.sendMessageStream({ message });
-  for await (const chunk of result) {
-    const response = chunk as GenerateContentResponse;
-    if (response.text) {
-      yield response.text;
+  try {
+    const result = await chat.sendMessageStream({ message });
+    for await (const chunk of result) {
+      const response = chunk as GenerateContentResponse;
+      const part = response.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (part) {
+        yield part;
+      }
     }
+  } catch (error) {
+    console.error("Gemini Stream Internal Error:", error);
+    throw error;
   }
 }
