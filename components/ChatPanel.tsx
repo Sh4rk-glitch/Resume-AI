@@ -150,7 +150,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     setMessages(prev => [...prev, newAssistantMessage]);
 
     try {
-      // Exclude current empty message from history to prevent API errors
+      // Exclude current empty message and ensure roles alternate
       const history = messages
         .filter(m => m.content && m.content.trim() !== '')
         .map(m => ({ role: m.role, content: m.content }));
@@ -162,10 +162,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
         typewriterQueue.current += chunk;
       }
       
-    } catch (err) {
-      console.error("Gemini Stream Error Detail:", err);
-      setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: "The neural link was interrupted. Please try again." } : m));
-      showToast("Connection interrupted.", "error");
+    } catch (err: any) {
+      console.error("Chat Panel Error:", err);
+      const friendlyError = err.message.includes("API_KEY") 
+        ? "Neural link failed: Configuration Missing. Check your Vercel API_KEY."
+        : `The neural link was interrupted: ${err.message}`;
+        
+      setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: friendlyError } : m));
+      showToast("Connection failed.", "error");
     } finally {
       setIsTyping(false);
     }

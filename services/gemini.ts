@@ -5,7 +5,8 @@ import { ResumeData, AIPersona } from "../types";
 const getAI = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("API_KEY is not configured in environment variables.");
+    console.error("CRITICAL: API_KEY is missing from process.env. Ensure it is set in Vercel Environment Variables.");
+    throw new Error("AI Configuration Missing. Please check the server environment.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -36,14 +37,13 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
 OUTPUT FORMAT: Strict JSON only. No markdown formatting.
         
 PERSONA GENERATION RULES:
-1. 'name': Use the user's full name if found, otherwise 'Professional Persona'.
-2. 'tone': Describe their professional voice (e.g., 'Visionary and Analytical').
+1. 'name': Use the user's full name if found.
+2. 'tone': Describe their professional voice.
 3. 'identifier': A unique URL-safe slug.
-4. 'exampleResponses': 3 short professional questions a recruiter might ask.
+4. 'exampleResponses': 3 short recruiter questions.
 
 RESUME EXTRACTION RULES:
-- Include 'summary', 'skills', 'experience', 'education'.
-- In 'experience', each 'description' item must be a short achievement-oriented bullet point.` }
+- Include 'summary', 'skills', 'experience', 'education'.` }
       ]
     },
     config: {
@@ -80,10 +80,8 @@ RESUME EXTRACTION RULES:
                     year: { type: Type.STRING }
                   }
                 }
-              },
-              certifications: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["name", "title", "summary", "skills", "experience"]
+              }
+            }
           },
           persona: {
             type: Type.OBJECT,
@@ -95,8 +93,7 @@ RESUME EXTRACTION RULES:
               description: { type: Type.STRING },
               identifier: { type: Type.STRING },
               exampleResponses: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["name", "tone", "strengths", "expertise", "description", "identifier", "exampleResponses"]
+            }
           }
         }
       }
@@ -109,7 +106,6 @@ RESUME EXTRACTION RULES:
   try {
     return JSON.parse(text);
   } catch (e) {
-    console.error("JSON Parse Error:", text);
     throw new Error("The AI provided a non-standard response structure.");
   }
 };
@@ -121,50 +117,59 @@ export async function* chatWithPersonaStream(
   persona: AIPersona
 ) {
   const ai = getAI();
-  const model = 'gemini-3-flash-preview';
+  // Using 2.5 Flash Lite for maximum regional stability on Edge/Cloud deployments
+  const modelName = 'gemini-2.5-flash-lite-latest';
 
-  // GEMINI HISTORY RULES:
-  // 1. Roles must strictly alternate: user -> model -> user -> model
-  // 2. Cannot have two consecutive messages with the same role.
-  // 3. Current message (sent via sendMessageStream) acts as the NEW 'user' turn.
-  
+  /**
+   * GEMINI SDK HISTORY RULES:
+   * 1. First message MUST be 'user'.
+   * 2. Roles MUST alternate 'user' -> 'model' -> 'user'.
+   */
   const mappedHistory = [];
-  let lastRole = null;
+  let lastRoleAdded = null;
 
+  // Filter out any messages that aren't alternating correctly
   for (const h of history) {
-    const role = h.role === 'assistant' ? 'model' : 'user';
-    // Skip if role is same as last to maintain alternation integrity
-    if (role === lastRole) continue;
+    const apiRole = h.role === 'assistant' ? 'model' : 'user';
+    
+    // Rule: First message in history must be user. 
+    // If our history starts with a model (e.g. welcome message), we skip it to satisfy SDK.
+    if (mappedHistory.length === 0 && apiRole === 'model') continue;
+    
+    // Rule: Strict alternation.
+    if (apiRole === lastRoleAdded) continue;
     if (!h.content || h.content.trim() === '') continue;
 
     mappedHistory.push({
-      role,
+      role: apiRole,
       parts: [{ text: h.content }]
     });
-    lastRole = role;
+    lastRoleAdded = apiRole;
   }
 
-  // Ensure history ends with 'model' so current 'user' message alternates correctly
+  // Ensure history ends with 'model' so that the new 'user' message alternates correctly.
   if (mappedHistory.length > 0 && mappedHistory[mappedHistory.length - 1].role === 'user') {
     mappedHistory.pop();
   }
 
   const chat = ai.chats.create({
-    model,
+    model: modelName,
     history: mappedHistory,
     config: {
-      systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}. Description: ${persona.description}.
-      You strictly represent the career history of the user as described in their resume.
+      systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}.
+      Narrative Context: ${persona.description}.
       
-      Resume Data:
+      CAREER DATA:
+      - Title: ${resumeData.title}
       - Summary: ${resumeData.summary}
-      - Tech Stack: ${resumeData.skills.join(', ')}
-      - Experience: ${JSON.stringify(resumeData.experience)}
+      - Skills: ${resumeData.skills.join(', ')}
+      - History: ${JSON.stringify(resumeData.experience)}
       
-      Rules:
-      - Never hallucinate roles not in the resume.
-      - Maintain persona at all times.
-      - Be concise and professional.`,
+      STRICT OPERATING PARAMETERS:
+      - Answer ONLY based on the resume data provided.
+      - If a question is outside your professional scope, clarify that as ${persona.name}.
+      - Maintain persona tone consistently.
+      - Be succinct and professional.`,
     }
   });
 
@@ -172,13 +177,15 @@ export async function* chatWithPersonaStream(
     const result = await chat.sendMessageStream({ message });
     for await (const chunk of result) {
       const response = chunk as GenerateContentResponse;
-      const part = response.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (part) {
-        yield part;
+      const text = response.text;
+      if (text) {
+        yield text;
       }
     }
-  } catch (error) {
-    console.error("Gemini Stream Internal Error:", error);
-    throw error;
+  } catch (error: any) {
+    console.error("Gemini Stream Protocol Error:", error);
+    // Log the specific error message to help the developer diagnose Vercel issues
+    const errorMessage = error?.message || "Unknown API Error";
+    throw new Error(`Neural Link Error: ${errorMessage}`);
   }
 }
