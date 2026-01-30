@@ -47,7 +47,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center space-x-4 cursor-pointer group" onClick={onHome}>
+          <div className="flex items-center space-x-4 cursor-target group" onClick={onHome}>
             <div className="bg-indigo-600 text-white p-2.5 rounded-xl font-bold shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform">RAI</div>
             <h1 className="text-lg font-bold text-gray-900 dark:text-white hidden sm:block">Dashboard</h1>
           </div>
@@ -55,7 +55,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="flex items-center space-x-4">
             <button 
               onClick={onHome}
-              className="px-4 py-2 text-sm font-bold text-gray-600 dark:text-slate-300 hover:text-indigo-600 transition-colors flex items-center"
+              className="px-4 py-2 text-sm font-bold text-gray-600 dark:text-slate-300 hover:text-indigo-600 transition-colors flex items-center cursor-target"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -63,14 +63,14 @@ const Dashboard: React.FC<DashboardProps> = ({
               Home
             </button>
 
-            <div className="hidden lg:flex items-center bg-gray-100 dark:bg-slate-800 px-4 py-2 rounded-xl text-[10px] font-black uppercase text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700 tracking-widest">
+            <div className="hidden lg:flex items-center bg-gray-100 dark:bg-slate-800 px-4 py-2 rounded-xl text-[10px] font-black uppercase text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700 tracking-widest cursor-target">
               <span className="w-2 h-2 bg-green-500 rounded-full mr-3 animate-pulse"></span>
               {publicLink}
             </div>
             
             <button 
               onClick={copyLink}
-              className="p-2.5 text-gray-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+              className="p-2.5 text-gray-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-target"
               title="Copy public link"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
@@ -81,14 +81,14 @@ const Dashboard: React.FC<DashboardProps> = ({
 
             <button 
               onClick={toggleDarkMode}
-              className="p-2.5 rounded-xl border border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+              className="p-2.5 rounded-xl border border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-target"
             >
               {darkMode ? '🌙' : '☀️'}
             </button>
 
             <button 
               onClick={onReset}
-              className="px-4 py-2 bg-red-50 dark:bg-red-900/10 text-xs font-black text-red-600 dark:text-red-400 rounded-lg border border-red-100 dark:border-red-900/20 hover:bg-red-100 transition-colors uppercase tracking-widest"
+              className="px-4 py-2 bg-red-50 dark:bg-red-900/10 text-xs font-black text-red-600 dark:text-red-400 rounded-lg border border-red-100 dark:border-red-900/20 hover:bg-red-100 transition-colors uppercase tracking-widest cursor-target"
             >
               Logout
             </button>
@@ -99,7 +99,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden">
         {/* Left Sidebar - Persona Info */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-slate-800 cursor-target">
             <div className="flex items-center space-x-6 mb-8">
               <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-xl shadow-indigo-500/20">
                 {persona.name.charAt(0)}
@@ -124,7 +124,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <h3 className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-3">Skill Modules</h3>
                 <div className="flex flex-wrap gap-2">
                   {persona.strengths.slice(0, 5).map((s, i) => (
-                    <span key={i} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 text-xs font-black rounded-lg border border-indigo-100 dark:border-indigo-900/30 uppercase">
+                    <span key={i} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 text-xs font-black rounded-lg border border-indigo-100 dark:border-indigo-900/30 uppercase cursor-target">
                       {s}
                     </span>
                   ))}
@@ -138,21 +138,21 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="space-y-2">
               <button 
                 onClick={() => setActiveTab('chat')} 
-                className={`w-full text-left p-4 rounded-2xl font-bold transition-all flex items-center ${activeTab === 'chat' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
+                className={`w-full text-left p-4 rounded-2xl font-bold transition-all flex items-center cursor-target ${activeTab === 'chat' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
               >
                 <span className="mr-3">💬</span>
                 Interactive Chat
               </button>
               <button 
                 onClick={() => setActiveTab('summary')} 
-                className={`w-full text-left p-4 rounded-2xl font-bold transition-all flex items-center ${activeTab === 'summary' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
+                className={`w-full text-left p-4 rounded-2xl font-bold transition-all flex items-center cursor-target ${activeTab === 'summary' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
               >
                 <span className="mr-3">📄</span>
                 Structure Analysis
               </button>
               <button 
                 onClick={() => setShowHistory(!showHistory)} 
-                className={`w-full text-left p-4 rounded-2xl font-bold transition-all flex items-center ${showHistory ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
+                className={`w-full text-left p-4 rounded-2xl font-bold transition-all flex items-center cursor-target ${showHistory ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
               >
                 <span className="mr-3">🗄️</span>
                 Saved Personas ({savedResumes.length})
@@ -165,7 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <button
                     key={idx}
                     onClick={() => onSelectPersona(idx)}
-                    className={`w-full text-left p-3 rounded-xl text-xs font-bold transition-all border ${item.persona_data.identifier === persona.identifier ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300' : 'border-transparent text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
+                    className={`w-full text-left p-3 rounded-xl text-xs font-bold transition-all border cursor-target ${item.persona_data.identifier === persona.identifier ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300' : 'border-transparent text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
                   >
                     <div className="truncate">{item.persona_data.name}</div>
                     <div className="text-[10px] opacity-60 font-medium">{new Date(item.created_at).toLocaleDateString()}</div>
@@ -173,7 +173,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 ))}
                 <button 
                   onClick={onNewResume}
-                  className="w-full mt-2 p-3 rounded-xl text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border border-dashed border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all"
+                  className="w-full mt-2 p-3 rounded-xl text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border border-dashed border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all cursor-target"
                 >
                   + Evolve New Resume
                 </button>

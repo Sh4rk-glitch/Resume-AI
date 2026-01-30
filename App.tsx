@@ -6,6 +6,7 @@ import ResumeUpload from './components/ResumeUpload';
 import Dashboard from './components/Dashboard';
 import PublicView from './components/publicview_temp';
 import Auth from './components/Auth';
+import TargetCursor from './components/TargetCursor';
 import { supabase, getUserResumes, saveResume, getResumeByIdentifier } from './services/supabase';
 
 const App: React.FC = () => {
@@ -32,17 +33,22 @@ const App: React.FC = () => {
   }, [darkMode]);
 
   // Shared function to fetch and route user history
-  const fetchUserHistory = useCallback(async (userId: string) => {
+  const fetchUserHistory = useCallback(async (userId: string, shouldRoute: boolean = false) => {
     try {
       const resumes = await getUserResumes(userId);
       setSavedResumes(resumes || []);
+      
       if (resumes && resumes.length > 0) {
         setCurrentResume(resumes[0].resume_data);
         setCurrentPersona(resumes[0].persona_data);
         setCurrentResumeId(resumes[0].id);
-        setAppState(AppState.DASHBOARD);
+        if (shouldRoute) {
+          setAppState(AppState.DASHBOARD);
+        }
       } else {
-        setAppState(AppState.UPLOADING);
+        if (shouldRoute) {
+          setAppState(AppState.UPLOADING);
+        }
       }
     } catch (err) {
       console.error("History fetch failed:", err);
@@ -83,7 +89,8 @@ const App: React.FC = () => {
         setSession(currentSession);
         
         if (currentSession) {
-          await fetchUserHistory(currentSession.user.id);
+          // On initial load, we DO want to route if a session exists
+          await fetchUserHistory(currentSession.user.id, true);
         } else {
           setIsInitializing(false);
         }
@@ -95,14 +102,25 @@ const App: React.FC = () => {
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       
       if (newSession) {
-        // Prevent interrupting public view
+        // We only want to trigger navigation logic on explicit sign-in or session start.
+        // Background events like TOKEN_REFRESHED (triggered on window focus) should not force navigation.
+        const isEntryEvent = event === 'SIGNED_IN' || event === 'INITIAL_SESSION';
+        
         setAppState(current => {
+          // Never interrupt public view
           if (current === AppState.PUBLIC_VIEW) return current;
-          fetchUserHistory(newSession.user.id);
+          
+          // Only fetch history and potentially route if it's a primary auth event
+          if (isEntryEvent) {
+            fetchUserHistory(newSession.user.id, true);
+          } else {
+            // Just refresh data in background without changing the current page (AppState)
+            fetchUserHistory(newSession.user.id, false);
+          }
           return current;
         });
       } else {
@@ -186,6 +204,14 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen transition-all duration-500 ease-in-out dark:bg-slate-950 dark:text-slate-100">
+      <TargetCursor 
+        appState={appState}
+        spinDuration={4}
+        hideDefaultCursor={true}
+        parallaxOn={true}
+        hoverDuration={0.3}
+      />
+      
       {appState === AppState.LANDING && (
         <Landing 
           onStart={handleStart} 

@@ -77,7 +77,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onBack }) => {
               <input
                 type="email"
                 required
-                className="w-full px-5 py-4 border border-gray-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all bg-gray-50 dark:bg-slate-800 dark:text-white"
+                className="w-full px-5 py-4 border border-gray-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all bg-gray-50 dark:bg-slate-800 dark:text-white cursor-target"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -92,7 +92,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onBack }) => {
                     <button 
                       type="button"
                       onClick={() => setMode('forgot')}
-                      className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest hover:underline"
+                      className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest hover:underline cursor-target"
                     >
                       Forgot?
                     </button>
@@ -101,7 +101,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onBack }) => {
                 <input
                   type="password"
                   required
-                  className="w-full px-5 py-4 border border-gray-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all bg-gray-50 dark:bg-slate-800 dark:text-white"
+                  className="w-full px-5 py-4 border border-gray-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all bg-gray-50 dark:bg-slate-800 dark:text-white cursor-target"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -126,7 +126,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onBack }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 px-4 border border-transparent text-sm font-black uppercase tracking-widest rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none shadow-xl shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-50"
+              className="w-full py-4 px-4 border border-transparent text-sm font-black uppercase tracking-widest rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none shadow-xl shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-target"
             >
               {isLoading ? 'Processing...' : (mode === 'signup' ? 'Create Account' : mode === 'forgot' ? 'Send Reset Link' : 'Sign In')}
             </button>
@@ -137,14 +137,14 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onBack }) => {
           {mode === 'forgot' ? (
             <button
               onClick={() => setMode('signin')}
-              className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
+              className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 cursor-target"
             >
               Back to Sign In
             </button>
           ) : (
             <button
               onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-              className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
+              className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 cursor-target"
             >
               {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
             </button>
@@ -153,7 +153,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onBack }) => {
 
         <button 
           onClick={onBack}
-          className="w-full text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 dark:text-slate-600 dark:hover:text-slate-400 mt-6 transition-colors"
+          className="w-full text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 dark:text-slate-600 dark:hover:text-slate-400 mt-6 transition-colors cursor-target"
         >
           ← Cancel
         </button>

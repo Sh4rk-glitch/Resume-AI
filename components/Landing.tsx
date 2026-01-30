@@ -68,7 +68,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
 
       {/* Navigation Header */}
       <nav className="relative z-50 w-full max-w-7xl mx-auto px-4 h-24 flex items-center justify-between">
-        <div className="flex items-center space-x-2 group cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+        <div className="flex items-center space-x-2 group cursor-target" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
           <div className="bg-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow-lg group-hover:rotate-12 transition-transform">
             RAI
           </div>
@@ -78,13 +78,13 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
         <div className="flex items-center space-x-4">
           <button 
             onClick={toggleDarkMode}
-            className="p-2.5 rounded-xl border border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors"
+            className="p-2.5 rounded-xl border border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors cursor-target"
           >
             {darkMode ? '🌙' : '☀️'}
           </button>
           <button 
             onClick={onSignIn}
-            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm ${
+            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm cursor-target ${
               isLoggedIn 
                 ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
                 : 'dark:text-slate-300 dark:border-slate-800 border border-gray-200 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-white dark:hover:bg-slate-800'
@@ -108,7 +108,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
         <h1 className="text-7xl md:text-9xl font-black tracking-tighter dark:text-white mb-8 animate-fade-in-up leading-[0.9]">
           The Resume <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] animate-gradient italic">
-            AI.
+            Autonomous.
           </span>
         </h1>
         
@@ -119,13 +119,13 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
         <div className="flex flex-col sm:flex-row items-center justify-center gap-6 animate-fade-in-up delay-200">
           <button
             onClick={onStart}
-            className="group relative px-10 py-5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all hover:scale-105 shadow-[0_0_40px_-10px_rgba(79,70,229,0.5)]"
+            className="group relative px-10 py-5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all hover:scale-105 shadow-[0_0_40px_-10px_rgba(79,70,229,0.5)] cursor-target"
           >
             Evolve Resume
           </button>
           <button 
             onClick={() => setShowPreview(true)}
-            className="px-10 py-5 dark:bg-slate-900 dark:text-white border border-slate-800 rounded-2xl hover:border-indigo-500 transition-all font-bold"
+            className="px-10 py-5 dark:bg-slate-900 dark:text-white border border-slate-800 rounded-2xl hover:border-indigo-500 transition-all font-bold cursor-target"
           >
             Live Preview
           </button>
@@ -143,7 +143,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
           ].map((feature, i) => (
             <div 
               key={feature.id}
-              className={`glass p-8 rounded-3xl border-indigo-500/10 hover:border-indigo-500/30 transition-all duration-1000 group ${
+              className={`glass p-8 rounded-3xl border-indigo-500/10 hover:border-indigo-500/30 transition-all duration-1000 group cursor-target ${
                 isVisible['features'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
               }`}
               style={{ transitionDelay: `${i * 150}ms` }}
@@ -175,7 +175,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
               }`}
               style={{ transitionDelay: `${i * 200}ms` }}
             >
-              <div className="w-20 h-20 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-3xl flex items-center justify-center text-3xl shadow-xl mb-8 group hover:scale-110 transition-transform">
+              <div className="w-20 h-20 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-3xl flex items-center justify-center text-3xl shadow-xl mb-8 group hover:scale-110 transition-transform cursor-target">
                 {step.icon}
               </div>
               <h3 className="text-xl font-bold dark:text-white mb-4">{step.title}</h3>
@@ -203,7 +203,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
           </h2>
           <button
             onClick={onStart}
-            className="px-16 py-8 bg-white text-indigo-600 font-black text-2xl rounded-3xl hover:bg-gray-100 shadow-[0_20px_60px_-15px_rgba(255,255,255,0.4)] transition-all hover:scale-110 active:scale-95"
+            className="px-16 py-8 bg-white text-indigo-600 font-black text-2xl rounded-3xl hover:bg-gray-100 shadow-[0_20px_60px_-15px_rgba(255,255,255,0.4)] transition-all hover:scale-110 active:scale-95 cursor-target"
           >
             Launch My Persona
           </button>
@@ -214,7 +214,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
       <footer className="bg-white dark:bg-slate-950 border-t border-gray-100 dark:border-slate-900 py-24">
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-16">
           <div className="flex flex-col items-center md:items-start space-y-6">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 cursor-target">
               <div className="bg-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg">RAI</div>
               <span className="font-bold dark:text-white text-2xl">Resume AI</span>
             </div>
@@ -222,7 +222,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
           </div>
         </div>
         <div className="mt-24 text-center text-[10px] text-gray-300 dark:text-slate-800 font-black uppercase tracking-[0.5em]">
-          Evolved Professionally © 2025 • resume-ai.app • Built By Shourya Mishra
+          Evolved Professionally © 2025 • resume-ai.app • Built with ♡ by Shourya Mishra
         </div>
       </footer>
 
@@ -315,7 +315,7 @@ const LivePreview: React.FC<{ onClose: () => void; onStart: () => void }> = ({ o
                <div className="text-[10px] font-black uppercase text-gray-400 dark:text-slate-500 tracking-widest">Skill Modules</div>
                <div className="grid grid-cols-2 gap-2">
                  {['Strategy', 'Cloud', 'FinOps', 'Leadership'].map((skill, i) => (
-                   <div key={i} className="px-2 py-1.5 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-lg border border-indigo-500/10 text-[8px] font-black uppercase text-indigo-500 tracking-tighter text-center">
+                   <div key={i} className="px-2 py-1.5 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-lg border border-indigo-500/10 text-[8px] font-black uppercase text-indigo-500 tracking-tighter text-center cursor-target">
                      {skill}
                    </div>
                  ))}
@@ -345,7 +345,7 @@ const LivePreview: React.FC<{ onClose: () => void; onStart: () => void }> = ({ o
               <span className="w-2 h-2 bg-indigo-500 rounded-full mr-3 animate-ping"></span>
               <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-slate-500">Recruiter Session Simulator</span>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors p-2">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors p-2 cursor-target">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
@@ -355,7 +355,7 @@ const LivePreview: React.FC<{ onClose: () => void; onStart: () => void }> = ({ o
           <div className="flex-1 p-8 space-y-6 overflow-y-auto bg-white dark:bg-slate-950">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'recruiter' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] p-6 rounded-[2rem] text-sm leading-relaxed shadow-sm border animate-fade-in-up ${
+                <div className={`max-w-[85%] p-6 rounded-[2rem] text-sm leading-relaxed shadow-sm border animate-fade-in-up cursor-target ${
                   m.role === 'recruiter' 
                     ? 'bg-indigo-600 text-white rounded-br-none border-indigo-500' 
                     : 'bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 rounded-bl-none border-gray-200 dark:border-slate-800'
@@ -397,7 +397,7 @@ const LivePreview: React.FC<{ onClose: () => void; onStart: () => void }> = ({ o
                   </div>
                   <button 
                     onClick={onStart} 
-                    className="w-full py-5 bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.3em] rounded-2xl hover:bg-indigo-700 transition-all shadow-[0_20px_60px_-15px_rgba(79,70,229,0.5)] active:scale-[0.98]"
+                    className="w-full py-5 bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.3em] rounded-2xl hover:bg-indigo-700 transition-all shadow-[0_20px_60px_-15px_rgba(79,70,229,0.5)] active:scale-[0.98] cursor-target"
                   >
                     Deploy Your Own Persona
                   </button>

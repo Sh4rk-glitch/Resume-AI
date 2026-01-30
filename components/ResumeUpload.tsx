@@ -154,7 +154,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
     <div className="max-w-4xl mx-auto px-4 py-12 animate-fade-in-up">
       <button 
         onClick={onBack}
-        className="mb-8 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-bold flex items-center transition-colors group uppercase text-[10px] tracking-widest"
+        className="mb-8 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-bold flex items-center transition-colors group uppercase text-[10px] tracking-widest cursor-target"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
@@ -172,13 +172,13 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
           <div className="flex bg-gray-100 dark:bg-slate-800 p-1.5 rounded-2xl">
             <button 
               onClick={() => setMode('upload')}
-              className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${mode === 'upload' ? 'bg-white dark:bg-slate-700 shadow-xl text-indigo-600 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-slate-500'}`}
+              className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-target ${mode === 'upload' ? 'bg-white dark:bg-slate-700 shadow-xl text-indigo-600 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-slate-500'}`}
             >
               Upload PDF
             </button>
             <button 
               onClick={() => setMode('paste')}
-              className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${mode === 'paste' ? 'bg-white dark:bg-slate-700 shadow-xl text-indigo-600 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-slate-500'}`}
+              className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-target ${mode === 'paste' ? 'bg-white dark:bg-slate-700 shadow-xl text-indigo-600 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-slate-500'}`}
             >
               Paste Text
             </button>
@@ -188,7 +188,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
         <form onSubmit={handleSubmit} className="space-y-10">
           {mode === 'upload' ? (
             <div 
-              className={`relative border-2 border-dashed rounded-[2.5rem] p-16 text-center transition-all ${
+              className={`relative border-2 border-dashed rounded-[2.5rem] p-16 text-center transition-all cursor-target ${
                 dragActive ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/10 scale-[1.01]' : 'border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/20 hover:border-indigo-300'
               }`}
               onDragEnter={handleDrag}
@@ -224,7 +224,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
                     <button 
                       type="button"
                       onClick={() => setFile(null)}
-                      className="text-[10px] text-red-500 font-black uppercase tracking-widest hover:underline mt-4"
+                      className="text-[10px] text-red-500 font-black uppercase tracking-widest hover:underline mt-4 cursor-target"
                     >
                       Purge File
                     </button>
@@ -236,7 +236,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
                     <button 
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-10 py-4 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-2xl font-black text-sm uppercase tracking-widest text-gray-700 dark:text-white shadow-xl hover:shadow-indigo-500/10 transition-all active:scale-95"
+                      className="px-10 py-4 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-2xl font-black text-sm uppercase tracking-widest text-gray-700 dark:text-white shadow-xl hover:shadow-indigo-500/10 transition-all active:scale-95 cursor-target"
                     >
                       Browse DNA
                     </button>
@@ -252,7 +252,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
               <textarea
                 id="resumeText"
                 rows={12}
-                className="w-full px-8 py-6 rounded-[2rem] border border-gray-200 dark:border-slate-800 focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none text-gray-800 dark:text-white transition-all resize-none bg-gray-50 dark:bg-slate-800 shadow-inner"
+                className="w-full px-8 py-6 rounded-[2rem] border border-gray-200 dark:border-slate-800 focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none text-gray-800 dark:text-white transition-all resize-none bg-gray-50 dark:bg-slate-800 shadow-inner cursor-target"
                 placeholder="Ctrl+V your history here..."
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -274,7 +274,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
             <button
               type="submit"
               disabled={isLoading || (mode === 'upload' ? !file : !text.trim())}
-              className={`w-full py-6 rounded-2xl font-black text-sm uppercase tracking-[0.2em] text-white transition-all shadow-2xl ${
+              className={`w-full py-6 rounded-2xl font-black text-sm uppercase tracking-[0.2em] text-white transition-all shadow-2xl cursor-target ${
                 isLoading || (mode === 'upload' ? !file : !text.trim())
                   ? 'bg-gray-200 dark:bg-slate-800 cursor-not-allowed opacity-50'
                   : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/30 active:scale-95'

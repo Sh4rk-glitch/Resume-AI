@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Resume AI - Your Professional Persona</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='25' fill='%234f46e5'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='900' font-size='45'%3ERAI%3C/text%3E%3C/svg%3E">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script>
@@ -85,6 +86,17 @@
       background-image: linear-gradient(to right, rgba(99, 102, 241, 0.05) 1px, transparent 1px),
                         linear-gradient(to bottom, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
     }
+    
+    /* Global Target Cursor Styles */
+    .target-cursor-active {
+      cursor: none !important;
+    }
+    .target-cursor-active a, 
+    .target-cursor-active button,
+    .target-cursor-active input,
+    .target-cursor-active textarea {
+      cursor: none !important;
+    }
   </style>
 <script type="importmap">
 {
@@ -93,14 +105,14 @@
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
     "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.45.1"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.45.1",
+    "gsap": "https://esm.sh/gsap@^3.12.5"
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
 <body class="bg-white text-gray-900">
   <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
+  <script type="module" src="./index.tsx"></script>
 </body>
 </html>
