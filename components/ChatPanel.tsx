@@ -150,7 +150,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     setMessages(prev => [...prev, newAssistantMessage]);
 
     try {
-      const history = messages.map(m => ({ role: m.role, content: m.content }));
+      // Exclude current empty message from history to prevent API errors
+      const history = messages
+        .filter(m => m.content && m.content.trim() !== '')
+        .map(m => ({ role: m.role, content: m.content }));
+
       const stream = chatWithPersonaStream(input, history, resume, persona);
       
       for await (const chunk of stream) {
@@ -159,7 +163,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
       }
       
     } catch (err) {
-      console.error(err);
+      console.error("Gemini Stream Error Detail:", err);
       setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: "The neural link was interrupted. Please try again." } : m));
       showToast("Connection interrupted.", "error");
     } finally {

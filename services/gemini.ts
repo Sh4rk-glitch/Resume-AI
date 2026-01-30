@@ -115,10 +115,18 @@ export async function* chatWithPersonaStream(
   persona: AIPersona
 ) {
   const ai = getAI();
-  const model = 'gemini-3-pro-preview';
+  // Using gemini-3-flash-preview for maximum stability and speed
+  const model = 'gemini-3-flash-preview';
+
+  // Map history roles to Google's expected types ('assistant' -> 'model')
+  const mappedHistory = history.map(h => ({
+    role: h.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: h.content }]
+  }));
 
   const chat = ai.chats.create({
     model,
+    history: mappedHistory,
     config: {
       systemInstruction: `You are ${persona.name}, a digital professional persona.
       Your tone profile: ${persona.tone}.
