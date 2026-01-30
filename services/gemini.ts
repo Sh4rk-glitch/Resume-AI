@@ -3,10 +3,9 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
 const getAI = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = (window as any).process?.env?.API_KEY;
   if (!apiKey) {
-    console.error("CRITICAL ERROR: API_KEY environment variable is missing.");
-    throw new Error("API_KEY_MISSING");
+    throw new Error("NEEDS_KEY_SELECTION");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -117,28 +116,15 @@ export async function* chatWithPersonaStream(
   persona: AIPersona
 ) {
   const ai = getAI();
-  // Using gemini-3-flash-preview as the most reliable general-purpose model
   const modelName = 'gemini-3-flash-preview';
 
-  /**
-   * STRICT CHAT PROTOCOL RULES:
-   * 1. History must start with a 'user' message.
-   * 2. Roles must alternate strictly (user -> model -> user).
-   * 3. History must end with a 'model' message because the new 'message' param is 'user'.
-   */
   const filteredHistory = [];
   let lastRoleAdded = null;
 
   for (const h of history) {
     const apiRole = h.role === 'assistant' ? 'model' : 'user';
-    
-    // Rule 1: History must start with a user message. Skip if the first is 'model'.
     if (filteredHistory.length === 0 && apiRole === 'model') continue;
-    
-    // Rule 2: Strict alternation. Skip if same role as last.
     if (apiRole === lastRoleAdded) continue;
-    
-    // Rule 3: No empty content.
     if (!h.content || h.content.trim() === '') continue;
 
     filteredHistory.push({
@@ -148,7 +134,6 @@ export async function* chatWithPersonaStream(
     lastRoleAdded = apiRole;
   }
 
-  // Final validation: Ensure history ends with 'model' so that the new 'user' message alternates correctly.
   if (filteredHistory.length > 0 && filteredHistory[filteredHistory.length - 1].role === 'user') {
     filteredHistory.pop();
   }
@@ -158,19 +143,8 @@ export async function* chatWithPersonaStream(
     history: filteredHistory,
     config: {
       systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}.
-      Your synthesized context: ${persona.description}.
-      
-      CORE KNOWLEDGE (Resume Data):
-      - Current Title: ${resumeData.title}
-      - Career Summary: ${resumeData.summary}
-      - Tech/Skill Stack: ${resumeData.skills.join(', ')}
-      - Full History: ${JSON.stringify(resumeData.experience)}
-      
-      OPERATIONAL DIRECTIVES:
-      - Answer recruiter and peer questions based ONLY on the provided resume.
-      - If details are missing, bridge using the defined Persona Tone but do not invent jobs.
-      - Maintain persona identity at all times.
-      - Be succinct, professional, and high-impact.`,
+      Context: ${persona.description}.
+      Answer questions based ONLY on this resume: ${JSON.stringify(resumeData)}.`,
     }
   });
 
@@ -178,14 +152,12 @@ export async function* chatWithPersonaStream(
     const result = await chat.sendMessageStream({ message });
     for await (const chunk of result) {
       const response = chunk as GenerateContentResponse;
-      if (response.text) {
-        yield response.text;
-      }
+      if (response.text) yield response.text;
     }
   } catch (error: any) {
-    console.error("Gemini Protocol Failure:", error);
-    // Extract a more meaningful error if possible
-    const detailedError = error?.message || "Internal Service Error";
-    throw new Error(detailedError);
+    if (error?.message?.includes("entity was not found")) {
+      throw new Error("NEEDS_KEY_SELECTION");
+    }
+    throw error;
   }
 }
