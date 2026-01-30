@@ -2,16 +2,8 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
-const getAI = () => {
-  const apiKey = (window as any).process?.env?.API_KEY;
-  if (!apiKey) {
-    throw new Error("NEEDS_KEY_SELECTION");
-  }
-  return new GoogleGenAI({ apiKey });
-};
-
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
-  const ai = getAI();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = 'gemini-3-flash-preview';
 
   const parts = [];
@@ -115,7 +107,7 @@ export async function* chatWithPersonaStream(
   resumeData: ResumeData, 
   persona: AIPersona
 ) {
-  const ai = getAI();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelName = 'gemini-3-flash-preview';
 
   const filteredHistory = [];

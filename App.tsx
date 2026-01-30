@@ -18,7 +18,11 @@ const App: React.FC = () => {
   const [currentResumeId, setCurrentResumeId] = useState<string | null>(null);
   const [session, setSession] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [hasApiKey, setHasApiKey] = useState(!!(window as any).process?.env?.API_KEY);
+  
+  // Detect if we have a key or a bridge
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [canUseBridge, setCanUseBridge] = useState(false);
+
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || 
            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -36,28 +40,38 @@ const App: React.FC = () => {
     setConfirmDialog({ title, message, onConfirm });
   }, []);
 
+  // Continuous key monitoring
   useEffect(() => {
-    const checkKey = async () => {
-      const globalKey = (window as any).process?.env?.API_KEY;
-      if (globalKey) {
+    const checkKeyStatus = async () => {
+      const globalKey = process.env.API_KEY;
+      const bridgeExists = !!(window as any).aistudio;
+      
+      setCanUseBridge(bridgeExists);
+
+      if (globalKey && globalKey.length > 5) {
         setHasApiKey(true);
-      } else if ((window as any).aistudio) {
+      } else if (bridgeExists) {
         const selected = await (window as any).aistudio.hasSelectedApiKey();
         setHasApiKey(selected);
+      } else {
+        setHasApiKey(false);
       }
     };
-    checkKey();
-    const interval = setInterval(checkKey, 2000);
+
+    checkKeyStatus();
+    const interval = setInterval(checkKeyStatus, 1500);
     return () => clearInterval(interval);
   }, []);
 
   const handleOpenKeyPicker = async () => {
     if ((window as any).aistudio) {
-      await (window as any).aistudio.openSelectKey();
-      setHasApiKey(true);
-      showToast("Neural link established.");
-    } else {
-      showToast("AI Studio bridge not found. Check environment.", "error");
+      try {
+        await (window as any).aistudio.openSelectKey();
+        setHasApiKey(true);
+        showToast("Neural link established.");
+      } catch (err) {
+        showToast("Key selection cancelled.", "info");
+      }
     }
   };
 
@@ -189,7 +203,8 @@ const App: React.FC = () => {
     <div className="min-h-screen transition-all duration-500 ease-in-out dark:bg-slate-950 dark:text-slate-100">
       <TargetCursor appState={appState} hideDefaultCursor={true} />
 
-      {!hasApiKey && appState !== AppState.LANDING && (
+      {/* Only show the Bridge button if we actually HAVE an AI Studio bridge available */}
+      {!hasApiKey && canUseBridge && appState !== AppState.LANDING && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-fade-in-up">
            <button 
              onClick={handleOpenKeyPicker}
