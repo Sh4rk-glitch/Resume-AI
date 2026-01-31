@@ -86,7 +86,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
       const welcome = { id: crypto.randomUUID(), role: 'assistant', content: `Neural bridge reset.`, timestamp: new Date() } as ChatMessage;
       setMessages([welcome]);
       saveChatMessage(resumeId, welcome);
-      showToast("Neural bridge bridge reset successful.");
+      showToast("Neural bridge reset successful.");
     });
   };
 
@@ -125,10 +125,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
       }
     } catch (err: any) {
       console.error("Chat Error:", err);
-      let errorMessage = `Neural Link Error: ${err.message || "Unknown Connection Interruption"}`;
+      let errorMessage = `Connection Error: ${err.message || "Interrupted"}`;
       
-      if (err.message === "NEEDS_KEY_SELECTION") {
-        errorMessage = "CRITICAL: No valid Gemini API Key detected. If you are on Vercel, ensure the API_KEY env var is set and you have redeployed. If you are in AI Studio, use the 'Connect' button.";
+      if (err.message?.includes("API key")) {
+        errorMessage = "API Configuration Error. Ensure the project is redeployed with the correct API_KEY on Vercel.";
       }
       
       setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: errorMessage } : m));

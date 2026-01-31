@@ -87,7 +87,6 @@
                         linear-gradient(to bottom, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
     }
     
-    /* Global Target Cursor Styles */
     .target-cursor-active {
       cursor: none !important;
     }
@@ -112,6 +111,14 @@
 </script>
 </head>
 <body class="bg-white text-gray-900">
+  <script>
+    // Critical environment shim - runs BEFORE modules
+    window.process = window.process || {};
+    window.process.env = window.process.env || {};
+    // Check for various platform injection points
+    const apiKey = window.process.env.API_KEY || window.ENV?.API_KEY || window._AI_STUDIO_API_KEY_;
+    if (apiKey) window.process.env.API_KEY = apiKey;
+  </script>
   <div id="root"></div>
   <script type="module" src="./index.tsx"></script>
 </body>

@@ -2,16 +2,12 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
-const validateKey = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === 'undefined' || apiKey.length < 5) {
-    throw new Error("NEEDS_KEY_SELECTION");
-  }
-  return apiKey;
-};
-
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
-  const apiKey = validateKey();
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing API_KEY. Please set the API_KEY environment variable in your deployment settings.");
+  }
+  
   const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-flash-preview';
 
@@ -116,7 +112,11 @@ export async function* chatWithPersonaStream(
   resumeData: ResumeData, 
   persona: AIPersona
 ) {
-  const apiKey = validateKey();
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API Key is not configured. Please check your environment variables.");
+  }
+
   const ai = new GoogleGenAI({ apiKey });
   const modelName = 'gemini-3-flash-preview';
 
@@ -136,7 +136,6 @@ export async function* chatWithPersonaStream(
     lastRoleAdded = apiRole;
   }
 
-  // Ensure history doesn't end with user if we are about to send a user message
   if (filteredHistory.length > 0 && filteredHistory[filteredHistory.length - 1].role === 'user') {
     filteredHistory.pop();
   }
@@ -159,9 +158,6 @@ export async function* chatWithPersonaStream(
     }
   } catch (error: any) {
     console.error("Gemini Stream Error:", error);
-    if (error?.message?.includes("entity was not found") || error?.message?.includes("API key")) {
-      throw new Error("NEEDS_KEY_SELECTION");
-    }
     throw error;
   }
 }
