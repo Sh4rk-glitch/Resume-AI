@@ -115,9 +115,15 @@
     // Critical environment shim - runs BEFORE modules
     window.process = window.process || {};
     window.process.env = window.process.env || {};
-    // Check for various platform injection points
-    const apiKey = window.process.env.API_KEY || window.ENV?.API_KEY || window._AI_STUDIO_API_KEY_;
-    if (apiKey) window.process.env.API_KEY = apiKey;
+    // Check for various platform injection points including Vercel's public prefix
+    const apiKey = window.process.env.API_KEY || 
+                   window.process.env.NEXT_PUBLIC_API_KEY || 
+                   window.ENV?.API_KEY || 
+                   window._AI_STUDIO_API_KEY_;
+                   
+    if (apiKey && apiKey !== 'undefined' && apiKey !== 'process.env.API_KEY') {
+      window.process.env.API_KEY = apiKey;
+    }
   </script>
   <div id="root"></div>
   <script type="module" src="./index.tsx"></script>

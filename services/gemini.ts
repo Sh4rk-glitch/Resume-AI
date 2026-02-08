@@ -25,7 +25,7 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
   if (!apiKey) {
     // Determine the exact environment for better error reporting
     const isVercel = window.location.hostname.includes('vercel.app');
-    const envName = isVercel ? "Vercel Production" : "Local/Preview";
+    const envName = isVercel ? "Vercel Production (Public)" : "Local Development";
     throw new Error(`MISSING_KEY_ENV:${envName}`);
   }
 

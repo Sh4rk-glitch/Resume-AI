@@ -39,6 +39,7 @@ const App: React.FC = () => {
     setConfirmDialog({ title, message, onConfirm });
   }, []);
 
+  // Proactive Key Detection
   useEffect(() => {
     const checkKeyStatus = async () => {
       const globalKey = process.env.API_KEY;
@@ -46,13 +47,13 @@ const App: React.FC = () => {
       
       setCanUseBridge(!!bridge);
 
-      // Robust check for real key presence (not a literal string or undefined)
-      const isValidKey = globalKey && 
-                         globalKey.length > 10 && 
-                         globalKey !== 'process.env.API_KEY' && 
-                         globalKey !== 'undefined';
+      // A key is valid if it's a real string (not the placeholder 'process.env.API_KEY')
+      const envKeyExists = globalKey && 
+                           globalKey.length > 10 && 
+                           globalKey !== 'process.env.API_KEY' && 
+                           globalKey !== 'undefined';
 
-      if (isValidKey) {
+      if (envKeyExists) {
         setHasApiKey(true);
       } else if (bridge) {
         try {
@@ -67,7 +68,7 @@ const App: React.FC = () => {
     };
 
     checkKeyStatus();
-    const interval = setInterval(checkKeyStatus, 2000);
+    const interval = setInterval(checkKeyStatus, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -76,10 +77,12 @@ const App: React.FC = () => {
       try {
         await (window as any).aistudio.openSelectKey();
         setHasApiKey(true);
-        showToast("Neural link established.");
+        showToast("Neural link established. System operational.");
       } catch (err) {
-        showToast("Key selection cancelled.", "info");
+        showToast("Key selection required for AI features.", "info");
       }
+    } else {
+      showToast("Neural Bridge not detected. Check browser compatibility.", "error");
     }
   };
 
@@ -170,6 +173,10 @@ const App: React.FC = () => {
   }, [fetchUserHistory]);
 
   const handleStart = () => {
+    if (!hasApiKey && canUseBridge) {
+      handleOpenKeyPicker();
+      return;
+    }
     if (session) {
       setAppState(savedResumes.length > 0 ? AppState.DASHBOARD : AppState.UPLOADING);
     } else {
@@ -213,27 +220,41 @@ const App: React.FC = () => {
     <div className="min-h-screen transition-all duration-500 ease-in-out dark:bg-slate-950 dark:text-slate-100">
       <TargetCursor appState={appState} hideDefaultCursor={true} />
 
+      {/* Global Status Bar for Keys */}
+      <div className="fixed top-6 right-6 z-[100] flex items-center space-x-3 pointer-events-none">
+        <div className={`px-4 py-2 rounded-full border backdrop-blur-md flex items-center space-x-2 transition-all duration-500 ${hasApiKey ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-red-500/10 border-red-500/20 text-red-500 animate-pulse'}`}>
+          <div className={`w-2 h-2 rounded-full ${hasApiKey ? 'bg-green-500' : 'bg-red-500 animate-ping'}`}></div>
+          <span className="text-[9px] font-black uppercase tracking-widest">{hasApiKey ? 'Neural Link Active' : 'Neural Link Offline'}</span>
+        </div>
+      </div>
+
       {!hasApiKey && appState !== AppState.LANDING && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-fade-in-up w-full max-w-sm px-4">
            {canUseBridge ? (
-             <div className="bg-white dark:bg-slate-900 border border-indigo-500/20 shadow-2xl rounded-[2rem] p-6 text-center">
-                <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-4">Neural Engine Required</p>
+             <div className="bg-white dark:bg-slate-900 border border-indigo-500/20 shadow-2xl rounded-[2.5rem] p-8 text-center">
+                <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                   <span className="text-2xl animate-pulse">⚡</span>
+                </div>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">Connect AI Engine</h3>
+                <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mb-6 leading-relaxed">
+                  Browser-based apps cannot access private Vercel variables. Please use the Neural Bridge to connect your key.
+                </p>
                 <button 
                   onClick={handleOpenKeyPicker}
-                  className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all flex items-center justify-center group cursor-target"
+                  className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all cursor-target"
                 >
-                  <span className="w-2 h-2 bg-white rounded-full mr-3 animate-ping"></span>
                   Establish Neural Bridge
                 </button>
-                <p className="mt-3 text-[9px] font-bold text-gray-400 dark:text-slate-500 uppercase leading-relaxed">
-                  Your Vercel environment variables are hidden from the browser. Use this bridge to connect your key.
-                </p>
+                <div className="mt-4 flex flex-col items-center space-y-1">
+                   <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold text-indigo-500 uppercase hover:underline cursor-target">Billing Requirements</a>
+                   <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Selected keys are saved in this browser</p>
+                </div>
              </div>
            ) : isPublicDomain ? (
              <div className="bg-red-500/10 border border-red-500/20 backdrop-blur-md rounded-2xl p-4 text-center">
                 <p className="text-red-500 text-[9px] font-black uppercase tracking-widest leading-relaxed">
-                  System Offline: Browser cannot see API_KEY on public domains.<br/>
-                  Check Vercel Production Environment Variables.
+                  System Offline: Browser blocked from accessing API_KEY.<br/>
+                  Ensure you are using a compatible modern browser.
                 </p>
              </div>
            ) : null}
