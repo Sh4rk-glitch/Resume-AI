@@ -3,17 +3,18 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
 /**
- * Robust API key retrieval.
- * Vercel REQUIRES the NEXT_PUBLIC_ prefix to expose variables to the browser.
+ * Robust API key retrieval for production environments.
+ * Checks standard process.env and browser shims.
  */
 const getApiKey = () => {
-  const key = (window as any).process?.env?.NEXT_PUBLIC_API_KEY ||
-              (window as any).process?.env?.API_KEY ||
-              process.env.NEXT_PUBLIC_API_KEY ||
+  // In Vercel, client-side variables MUST be prefixed with NEXT_PUBLIC_
+  const key = (window as any).process?.env?.API_KEY ||
+              (window as any).process?.env?.NEXT_PUBLIC_API_KEY ||
               process.env.API_KEY || 
+              process.env.NEXT_PUBLIC_API_KEY ||
               (window as any)._AI_STUDIO_API_KEY_;
   
-  if (!key || key === 'undefined' || key === 'null' || key.length < 5 || key === 'process.env.API_KEY') {
+  if (!key || typeof key !== 'string' || key.length < 10 || key.includes('process.env')) {
     return null;
   }
   
@@ -50,7 +51,7 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
       contents: {
         parts: [
           ...parts,
-          { text: `TASK: Extract structured career data and professional persona. OUTPUT FORMAT: Strict JSON only.` }
+          { text: `TASK: Act as an expert career strategist. Extract structured career data and synthesize a professional AI persona. Strict JSON only.` }
         ]
       },
       config: {
@@ -140,7 +141,7 @@ export async function* chatWithPersonaStream(
     model: modelName,
     history: filteredHistory,
     config: {
-      systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}. Use this resume: ${JSON.stringify(resumeData)}.`,
+      systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}. Context: ${persona.description}. Resume: ${JSON.stringify(resumeData)}.`,
     }
   });
 

@@ -51,10 +51,16 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
     });
   };
 
-  const handleOpenBridge = async () => {
+  const handleOpenBridge = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if ((window as any).aistudio) {
-      await (window as any).aistudio.openSelectKey();
-      setError(null); // Clear error after attempting link
+      try {
+        await (window as any).aistudio.openSelectKey();
+        setError(null); 
+      } catch (err) {
+        console.error("Bridge failed:", err);
+      }
     }
   };
 
@@ -102,19 +108,20 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
       if (err.message === "API_KEY_MISSING") {
         errorDetails = {
           title: "Browser Key Missing",
-          msg: `Vercel hides environment variables from the browser. You must rename your Vercel variable to NEXT_PUBLIC_API_KEY for the app to see it.`,
+          msg: `The Gemini engine is active but can't find your API Key in the Vercel environment. Vercel hides environment variables from the browser by default.`,
           checklist: [
-            "Rename 'API_KEY' to 'NEXT_PUBLIC_API_KEY' in Vercel Settings.",
-            "Redeploy the project in Vercel to apply the change.",
-            "OR: Use the button below to manually link a key temporarily."
+            "Rename 'API_KEY' to 'NEXT_PUBLIC_API_KEY' in Vercel settings.",
+            "In Vercel, ensure 'Production' environment is CHECKED for this variable.",
+            "Redeploy your Vercel project after updating settings.",
+            "OR: Establish a temporary link using the button below."
           ],
           showBridge: true
         };
-      } else if (err.message.startsWith("TECHNICAL_ERROR: ")) {
-        errorDetails = { 
-          title: "API Engine Failure", 
-          msg: err.message.replace("TECHNICAL_ERROR: ", ""),
-          checklist: ["Check if your API key has billing enabled.", "Ensure the region you are in supports Gemini 3."],
+      } else if (err.message.includes("API_KEY_INVALID")) {
+         errorDetails = {
+          title: "Invalid API Key",
+          msg: "The provided key was rejected by Google Gemini.",
+          checklist: ["Check for trailing spaces in your Vercel variable.", "Ensure your API key is active in Google AI Studio."],
           showBridge: true
         };
       }
@@ -195,11 +202,11 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
               <p className="text-sm font-bold mb-6 leading-relaxed">{error.msg}</p>
               
               {error.checklist && error.checklist.length > 0 && (
-                <div className="space-y-3 pt-4 border-t border-red-200 dark:border-red-900/30 mb-6">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-red-700 dark:text-red-300 mb-2">Troubleshooting Checklist:</p>
+                <div className="space-y-3 pt-4 border-t border-red-200 dark:border-red-900/30 mb-8">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-red-700 dark:text-red-300 mb-2">Required Infrastructure Fixes:</p>
                   {error.checklist.map((item, i) => (
                     <div key={i} className="flex items-start text-xs font-medium">
-                      <span className="mr-3 mt-1 w-1 h-1 bg-red-500 rounded-full flex-shrink-0"></span>
+                      <span className="mr-3 mt-1.5 w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></span>
                       <span>{item}</span>
                     </div>
                   ))}
@@ -207,14 +214,17 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
               )}
 
               {error.showBridge && (
-                <button 
-                  type="button" 
-                  onClick={handleOpenBridge}
-                  className="w-full py-4 bg-red-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-xl shadow-lg hover:bg-red-700 transition-all cursor-target flex items-center justify-center"
-                >
-                  <span className="mr-3 animate-pulse">⚡</span>
-                  Establish Neural Bridge Now
-                </button>
+                <div className="relative z-[200]">
+                  <button 
+                    type="button" 
+                    onClick={handleOpenBridge}
+                    className="w-full py-5 bg-red-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-red-600/30 hover:bg-red-700 transition-all cursor-target flex items-center justify-center border-2 border-white/20"
+                  >
+                    <span className="mr-3 animate-ping">⚡</span>
+                    Establish Neural Bridge Now
+                  </button>
+                  <p className="text-center text-[9px] font-black uppercase tracking-widest mt-4 opacity-60">Manual bypass for local testing</p>
+                </div>
               )}
             </div>
           )}

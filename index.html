@@ -115,14 +115,15 @@
     // Critical environment shim - runs BEFORE modules
     window.process = window.process || {};
     window.process.env = window.process.env || {};
-    // Check for various platform injection points including Vercel's public prefix
-    const apiKey = window.process.env.API_KEY || 
+    
+    // Check for standard and prefixed variables
+    const rawKey = window.process.env.API_KEY || 
                    window.process.env.NEXT_PUBLIC_API_KEY || 
-                   window.ENV?.API_KEY || 
-                   window._AI_STUDIO_API_KEY_;
+                   "";
                    
-    if (apiKey && apiKey !== 'undefined' && apiKey !== 'process.env.API_KEY') {
-      window.process.env.API_KEY = apiKey;
+    // Only apply if it looks like a real key (starts with AIza...)
+    if (rawKey.startsWith('AIza')) {
+       window.process.env.API_KEY = rawKey;
     }
   </script>
   <div id="root"></div>
