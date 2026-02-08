@@ -25,7 +25,14 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onBack }) => {
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            // This ensures the link in the email redirects to your Vercel URL
+            emailRedirectTo: window.location.origin 
+          }
+        });
         if (error) throw error;
         setSuccessMessage('Check your email for the confirmation link!');
       } else if (mode === 'signin') {
