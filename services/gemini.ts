@@ -9,8 +9,8 @@ const getApiKey = () => {
   // Check common global injection points
   const key = process.env.API_KEY || (window as any).process?.env?.API_KEY || (window as any).ENV?.API_KEY;
   
-  if (!key || key === 'undefined' || key === 'null' || key.length < 10) {
-    console.error("Gemini API Key missing or malformed. Found:", key ? `${key.substring(0, 3)}...` : "nothing");
+  if (!key || key === 'undefined' || key === 'null' || key.length < 5) {
+    console.warn("Gemini API Key detection failed. Found:", key);
     return null;
   }
   return key;
@@ -29,7 +29,6 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
   if (typeof input === 'string') {
     parts.push({ text: `DATA SOURCE: Raw Text\nCONTENT:\n${input}` });
   } else {
-    // Validate mimeType for Gemini
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'text/plain'];
     const mimeType = allowedTypes.includes(input.mimeType) ? input.mimeType : 'application/pdf';
     
@@ -49,16 +48,16 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
           ...parts,
           { text: `TASK: Act as an expert career strategist. Extract structured career data and synthesize a professional AI persona.
           
-OUTPUT FORMAT: Strict JSON only. No markdown code blocks. No preamble.
+OUTPUT FORMAT: Strict JSON only. 
           
 PERSONA GENERATION RULES:
 1. 'name': Full name from header.
-2. 'tone': Describe their specific professional voice (e.g., "Analytical and data-driven with a focus on scalable systems").
+2. 'tone': Describe their specific professional voice.
 3. 'identifier': A URL-safe unique slug.
-4. 'exampleResponses': 3 short, punchy answers they would give to a recruiter.
+4. 'exampleResponses': 3 short, punchy answers.
 
 RESUME EXTRACTION RULES:
-- Capture 'summary', 'skills' (array), 'experience' (array of objects), 'education' (array of objects).` }
+- Capture 'summary', 'skills' (array), 'experience' (array), 'education' (array).` }
         ]
       },
       config: {
@@ -118,19 +117,30 @@ RESUME EXTRACTION RULES:
     });
 
     const text = response.text;
-    if (!text) throw new Error("API returned empty text result.");
+    if (!text) throw new Error("The AI returned an empty response.");
     
-    // Clean potential markdown artifacts if they exist despite instructions
-    const cleanJson = text.replace(/```json|```/g, "").trim();
-    return JSON.parse(cleanJson);
+    try {
+      // Direct parse
+      return JSON.parse(text);
+    } catch (e) {
+      // Regex fallback if model includes conversational text
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      throw new Error(`Invalid JSON format received from AI: ${text.substring(0, 50)}...`);
+    }
   } catch (err: any) {
-    console.error("Parse Error Details:", err);
+    console.error("Gemini Parse Failure:", err);
     
-    if (err.message?.includes("API key")) throw new Error("API_KEY_INVALID");
-    if (err.message?.includes("429")) throw new Error("RATE_LIMIT");
-    if (err.message?.includes("Safety")) throw new Error("SAFETY_BLOCK");
+    const errMsg = err.message || "";
+    if (errMsg.includes("API key")) throw new Error("API_KEY_INVALID");
+    if (errMsg.includes("429")) throw new Error("RATE_LIMIT");
+    if (errMsg.includes("Safety")) throw new Error("SAFETY_BLOCK");
+    if (errMsg.includes("quota")) throw new Error("QUOTA_EXCEEDED");
     
-    throw new Error(err.message || "SYNTHESIS_FAILED");
+    // Pass the raw error through for debugging in the UI
+    throw new Error(`TECHNICAL_ERROR: ${err.message || "Unknown synthesis failure"}`);
   }
 };
 
@@ -183,8 +193,8 @@ export async function* chatWithPersonaStream(
       if (response.text) yield response.text;
     }
   } catch (error: any) {
-    console.error("Chat Error:", error);
+    console.error("Chat Stream Failure:", error);
     if (error.message?.includes("API key")) throw new Error("API_KEY_INVALID");
-    throw error;
+    throw new Error(`TECHNICAL_ERROR: ${error.message}`);
   }
 }

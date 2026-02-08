@@ -92,22 +92,32 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
         msg: "The document might be too complex or the connection was interrupted."
       };
 
-      switch(err.message) {
-        case "API_KEY_MISSING":
-          errorDetails = { title: "Vercel Not allowing API", msg: "Vercel doesn't allow third-party API calls from the frontend." };
-          break;
-        case "API_KEY_INVALID":
-          errorDetails = { title: "Invalid API Key", msg: "The provided Gemini API key was rejected. Please verify the key in your settings." };
-          break;
-        case "RATE_LIMIT":
-          errorDetails = { title: "Rate Limit Exceeded", msg: "Too many requests to the AI brain. Please wait a minute and try again." };
-          break;
-        case "SAFETY_BLOCK":
-          errorDetails = { title: "Safety Filter Block", msg: "The AI refused to process this content due to safety guidelines." };
-          break;
-        case "EMPTY_INPUT":
-          errorDetails = { title: "No Input Found", msg: "Please provide resume content via file upload or text pasting." };
-          break;
+      if (err.message.startsWith("TECHNICAL_ERROR: ")) {
+        errorDetails = { 
+          title: "Engine Error", 
+          msg: err.message.replace("TECHNICAL_ERROR: ", "") 
+        };
+      } else {
+        switch(err.message) {
+          case "API_KEY_MISSING":
+            errorDetails = { title: "API Configuration Missing", msg: "Environment variable 'API_KEY' is not set. Ensure it is added to your project settings and you have redeployed." };
+            break;
+          case "API_KEY_INVALID":
+            errorDetails = { title: "Invalid API Key", msg: "The provided Gemini API key was rejected by Google. Please verify the key in your AI Studio dashboard." };
+            break;
+          case "RATE_LIMIT":
+            errorDetails = { title: "Rate Limit Exceeded", msg: "Too many requests to the AI brain. Please wait a minute and try again." };
+            break;
+          case "SAFETY_BLOCK":
+            errorDetails = { title: "Safety Filter Block", msg: "The AI refused to process this content due to safety guidelines." };
+            break;
+          case "QUOTA_EXCEEDED":
+            errorDetails = { title: "Quota Exhausted", msg: "You have exceeded your Gemini API usage quota for the day." };
+            break;
+          case "EMPTY_INPUT":
+            errorDetails = { title: "No Input Found", msg: "Please provide resume content via file upload or text pasting." };
+            break;
+        }
       }
       
       setError(errorDetails);
@@ -181,12 +191,12 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
           )}
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 p-6 rounded-2xl flex flex-col border border-red-100 dark:border-red-900/30 animate-pulse">
+            <div className="bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 p-6 rounded-2xl flex flex-col border border-red-100 dark:border-red-900/30">
               <div className="flex items-center mb-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                 <span className="text-sm font-black uppercase tracking-widest">{error.title}</span>
               </div>
-              <p className="text-xs font-bold pl-10 opacity-80 leading-relaxed">{error.msg}</p>
+              <p className="text-xs font-bold pl-10 opacity-80 leading-relaxed break-words">{error.msg}</p>
             </div>
           )}
 
