@@ -25,16 +25,23 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onBack }) => {
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ 
+        const { data, error } = await supabase.auth.signUp({ 
           email, 
           password,
           options: {
-            // This ensures the link in the email redirects to your Vercel URL
             emailRedirectTo: window.location.origin 
           }
         });
+        
         if (error) throw error;
-        setSuccessMessage('Check your email for the confirmation link!');
+
+        // If 'Confirm Email' is disabled in Supabase Settings, 
+        // data.session will be populated immediately.
+        if (data.session) {
+          onSuccess();
+        } else {
+          setSuccessMessage('Account created! Please check your email to confirm (or wait for the redirect).');
+        }
       } else if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
