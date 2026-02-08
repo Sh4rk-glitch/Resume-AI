@@ -3,35 +3,33 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
 /**
- * Diagnostic helper to find the API key in various deployment environments.
+ * Robust API key retrieval for production environments.
  */
 const getApiKey = () => {
-  // Priority 1: process.env (Standard)
-  // Priority 2: window.process.env (Vercel/Shim)
-  // Priority 3: Global window variables (Custom bridges)
+  // Check common global injection points
   const key = process.env.API_KEY || 
               (window as any).process?.env?.API_KEY || 
               (window as any).ENV?.API_KEY ||
               (window as any)._AI_STUDIO_API_KEY_;
   
-  if (!key || key === 'undefined' || key === 'null' || key.length < 5) {
-    console.warn("Gemini Engine: No valid API key detected in process.env or window. Found:", key);
+  // Specifically detect if we are in a browser where process.env might be a string literal or undefined
+  if (!key || key === 'undefined' || key === 'null' || key.length < 5 || key === 'process.env.API_KEY') {
     return null;
   }
   
-  // Log masked key for debugging in the browser console
-  console.log(`Gemini Engine: Key detected (${key.substring(0, 4)}...${key.substring(key.length - 4)})`);
   return key;
 };
 
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("API_KEY_MISSING");
+    // Determine the exact environment for better error reporting
+    const isVercel = window.location.hostname.includes('vercel.app');
+    const envName = isVercel ? "Vercel Production" : "Local/Preview";
+    throw new Error(`MISSING_KEY_ENV:${envName}`);
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  // Using the exact required model name
   const model = 'gemini-3-flash-preview';
 
   const parts = [];
@@ -127,24 +125,10 @@ RESUME EXTRACTION RULES:
 
     const text = response.text;
     if (!text) throw new Error("Empty response from AI engine.");
-    
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) return JSON.parse(jsonMatch[0]);
-      throw new Error("AI returned malformed JSON content.");
-    }
+    return JSON.parse(text);
   } catch (err: any) {
-    console.error("Gemini API Error Object:", err);
-    
-    // Categorize common errors but preserve the message
-    const msg = err.message || "Unknown synthesis failure";
+    const msg = err.message || "";
     if (msg.includes("API key")) throw new Error(`API_KEY_INVALID: ${msg}`);
-    if (msg.includes("429")) throw new Error(`RATE_LIMIT: ${msg}`);
-    if (msg.includes("Safety")) throw new Error(`SAFETY_BLOCK: ${msg}`);
-    
-    // Default to a technical error that ResumeUpload will display raw
     throw new Error(`TECHNICAL_ERROR: ${msg}`);
   }
 };
@@ -161,33 +145,16 @@ export async function* chatWithPersonaStream(
   const ai = new GoogleGenAI({ apiKey });
   const modelName = 'gemini-3-flash-preview';
 
-  const filteredHistory = [];
-  let lastRoleAdded = null;
-
-  for (const h of history) {
-    const apiRole = h.role === 'assistant' ? 'model' : 'user';
-    if (filteredHistory.length === 0 && apiRole === 'model') continue;
-    if (apiRole === lastRoleAdded) continue;
-    if (!h.content || h.content.trim() === '') continue;
-
-    filteredHistory.push({
-      role: apiRole,
-      parts: [{ text: h.content }]
-    });
-    lastRoleAdded = apiRole;
-  }
-
-  if (filteredHistory.length > 0 && filteredHistory[filteredHistory.length - 1].role === 'user') {
-    filteredHistory.pop();
-  }
+  const filteredHistory = history.map(h => ({
+    role: h.role === 'assistant' ? 'model' as const : 'user' as const,
+    parts: [{ text: h.content }]
+  }));
 
   const chat = ai.chats.create({
     model: modelName,
     history: filteredHistory,
     config: {
-      systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}.
-      Context: ${persona.description}.
-      Only use this resume: ${JSON.stringify(resumeData)}. Be concise and professional.`,
+      systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}. Context: ${persona.description}. Use this resume: ${JSON.stringify(resumeData)}.`,
     }
   });
 
@@ -198,7 +165,6 @@ export async function* chatWithPersonaStream(
       if (response.text) yield response.text;
     }
   } catch (error: any) {
-    console.error("Chat Error:", error);
     throw new Error(`TECHNICAL_ERROR: ${error.message}`);
   }
 }

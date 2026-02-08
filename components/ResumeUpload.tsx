@@ -25,7 +25,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStageIdx, setLoadingStageIdx] = useState(0);
-  const [error, setError] = useState<{title: string, msg: string} | null>(null);
+  const [error, setError] = useState<{title: string, msg: string, checklist?: string[]} | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,35 +89,38 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
       
       let errorDetails = {
         title: "Synthesis Error",
-        msg: err.message || "An unexpected error occurred during synthesis."
+        msg: err.message || "An unexpected error occurred during synthesis.",
+        checklist: [] as string[]
       };
 
-      // Handle specific codes from services/gemini.ts
-      if (err.message.startsWith("TECHNICAL_ERROR: ")) {
+      if (err.message.startsWith("MISSING_KEY_ENV:")) {
+        const env = err.message.split(":")[1];
+        errorDetails = {
+          title: "Browser Key Missing",
+          msg: `The Gemini engine is active but can't find your API Key in the ${env} environment. Vercel hides environment variables from the browser by default.`,
+          checklist: [
+            "Use the 'Establish Neural Bridge' button at the bottom of the screen.",
+            "If using Vercel, check that 'Production' is selected for the API_KEY variable.",
+            "Redeploy your Vercel project after updating any environment variables."
+          ]
+        };
+      } else if (err.message.startsWith("TECHNICAL_ERROR: ")) {
         errorDetails = { 
           title: "API Engine Failure", 
-          msg: err.message.replace("TECHNICAL_ERROR: ", "") 
+          msg: err.message.replace("TECHNICAL_ERROR: ", ""),
+          checklist: ["Check if your API key has billing enabled.", "Ensure the region you are in supports Gemini 3."]
         };
-      } else if (err.message.startsWith("API_KEY_INVALID: ")) {
-        errorDetails = { 
-          title: "Invalid API Key", 
-          msg: "The key was rejected. Check your AI Studio dashboard and Vercel settings." 
-        };
-      } else if (err.message.startsWith("RATE_LIMIT: ")) {
-        errorDetails = { 
-          title: "Rate Limit Exceeded", 
-          msg: "Too many requests. Please wait 60 seconds." 
-        };
-      } else if (err.message === "API_KEY_MISSING") {
-        errorDetails = { 
-          title: "API Configuration Missing", 
-          msg: "The 'API_KEY' environment variable is not being picked up by the browser. Ensure it is set in Vercel and you have redeployed." 
-        };
-      } else if (err.message === "EMPTY_INPUT") {
-        errorDetails = { 
-          title: "Input Required", 
-          msg: "Please upload a file or paste resume text to begin." 
-        };
+      } else {
+        switch(err.message) {
+          case "API_KEY_MISSING":
+            errorDetails.title = "Neural Link Unconfigured";
+            errorDetails.msg = "No API Key detected. Please use the Neural Bridge button below.";
+            break;
+          case "EMPTY_INPUT":
+            errorDetails.title = "No Data Provided";
+            errorDetails.msg = "Please upload a resume file or paste text.";
+            break;
+        }
       }
       
       setError(errorDetails);
@@ -142,11 +145,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
           <div className="w-full bg-gray-100 dark:bg-slate-800 h-1 rounded-full overflow-hidden mb-8">
             <div className="h-full bg-indigo-600 transition-all duration-1000 ease-out" style={{ width: `${((loadingStageIdx + 1) / LOADING_STAGES.length) * 100}%` }}></div>
           </div>
-          <div className="h-6 flex items-center justify-center">
-             <p className="text-indigo-600 dark:text-indigo-400 font-bold uppercase text-[10px] tracking-[0.3em] animate-pulse">{LOADING_STAGES[loadingStageIdx]}</p>
-          </div>
+          <p className="text-indigo-600 dark:text-indigo-400 font-bold uppercase text-[10px] tracking-[0.3em] animate-pulse">{LOADING_STAGES[loadingStageIdx]}</p>
         </div>
-        <style dangerouslySetInnerHTML={{ __html: `@keyframes scan { 0%, 100% { top: 0%; opacity: 0.2; } 50% { top: 100%; opacity: 1; } }` }} />
       </div>
     );
   }
@@ -191,12 +191,24 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
           )}
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 p-6 rounded-2xl flex flex-col border border-red-100 dark:border-red-900/30">
-              <div className="flex items-center mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                <span className="text-sm font-black uppercase tracking-widest">{error.title}</span>
+            <div className="bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 p-8 rounded-[2rem] border border-red-100 dark:border-red-900/30">
+              <div className="flex items-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                <span className="text-lg font-black uppercase tracking-widest">{error.title}</span>
               </div>
-              <p className="text-xs font-bold pl-10 opacity-80 leading-relaxed break-words">{error.msg}</p>
+              <p className="text-sm font-bold mb-6 leading-relaxed">{error.msg}</p>
+              
+              {error.checklist && error.checklist.length > 0 && (
+                <div className="space-y-3 pt-4 border-t border-red-200 dark:border-red-900/30">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-red-700 dark:text-red-300 mb-2">Troubleshooting Checklist:</p>
+                  {error.checklist.map((item, i) => (
+                    <div key={i} className="flex items-start text-xs font-medium">
+                      <span className="mr-3 mt-1 w-1 h-1 bg-red-500 rounded-full flex-shrink-0"></span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

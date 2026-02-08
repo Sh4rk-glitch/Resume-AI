@@ -19,7 +19,6 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   
-  // Detect if we have a key or a bridge
   const [hasApiKey, setHasApiKey] = useState(false);
   const [canUseBridge, setCanUseBridge] = useState(false);
 
@@ -40,26 +39,35 @@ const App: React.FC = () => {
     setConfirmDialog({ title, message, onConfirm });
   }, []);
 
-  // Continuous key monitoring
   useEffect(() => {
     const checkKeyStatus = async () => {
       const globalKey = process.env.API_KEY;
-      const bridgeExists = !!(window as any).aistudio;
+      const bridge = (window as any).aistudio;
       
-      setCanUseBridge(bridgeExists);
+      setCanUseBridge(!!bridge);
 
-      if (globalKey && globalKey.length > 5) {
+      // Robust check for real key presence (not a literal string or undefined)
+      const isValidKey = globalKey && 
+                         globalKey.length > 10 && 
+                         globalKey !== 'process.env.API_KEY' && 
+                         globalKey !== 'undefined';
+
+      if (isValidKey) {
         setHasApiKey(true);
-      } else if (bridgeExists) {
-        const selected = await (window as any).aistudio.hasSelectedApiKey();
-        setHasApiKey(selected);
+      } else if (bridge) {
+        try {
+          const selected = await bridge.hasSelectedApiKey();
+          setHasApiKey(selected);
+        } catch (e) {
+          setHasApiKey(false);
+        }
       } else {
         setHasApiKey(false);
       }
     };
 
     checkKeyStatus();
-    const interval = setInterval(checkKeyStatus, 1500);
+    const interval = setInterval(checkKeyStatus, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -199,23 +207,36 @@ const App: React.FC = () => {
     );
   }
 
+  const isPublicDomain = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('resume-ai.app');
+
   return (
     <div className="min-h-screen transition-all duration-500 ease-in-out dark:bg-slate-950 dark:text-slate-100">
       <TargetCursor appState={appState} hideDefaultCursor={true} />
 
-      {/* Only show the Bridge button if we actually HAVE an AI Studio bridge available */}
-      {!hasApiKey && canUseBridge && appState !== AppState.LANDING && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-fade-in-up">
-           <button 
-             onClick={handleOpenKeyPicker}
-             className="px-8 py-4 bg-red-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-2xl shadow-red-600/40 hover:bg-red-700 transition-all flex items-center group cursor-target"
-           >
-             <span className="w-2 h-2 bg-white rounded-full mr-3 animate-ping"></span>
-             Connect Gemini Engine
-           </button>
-           <p className="text-center mt-3 text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">
-             <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="underline hover:text-indigo-500 transition-colors">Billing Req.</a>
-           </p>
+      {!hasApiKey && appState !== AppState.LANDING && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-fade-in-up w-full max-w-sm px-4">
+           {canUseBridge ? (
+             <div className="bg-white dark:bg-slate-900 border border-indigo-500/20 shadow-2xl rounded-[2rem] p-6 text-center">
+                <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-4">Neural Engine Required</p>
+                <button 
+                  onClick={handleOpenKeyPicker}
+                  className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all flex items-center justify-center group cursor-target"
+                >
+                  <span className="w-2 h-2 bg-white rounded-full mr-3 animate-ping"></span>
+                  Establish Neural Bridge
+                </button>
+                <p className="mt-3 text-[9px] font-bold text-gray-400 dark:text-slate-500 uppercase leading-relaxed">
+                  Your Vercel environment variables are hidden from the browser. Use this bridge to connect your key.
+                </p>
+             </div>
+           ) : isPublicDomain ? (
+             <div className="bg-red-500/10 border border-red-500/20 backdrop-blur-md rounded-2xl p-4 text-center">
+                <p className="text-red-500 text-[9px] font-black uppercase tracking-widest leading-relaxed">
+                  System Offline: Browser cannot see API_KEY on public domains.<br/>
+                  Check Vercel Production Environment Variables.
+                </p>
+             </div>
+           ) : null}
         </div>
       )}
 
