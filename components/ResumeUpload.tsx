@@ -94,7 +94,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
 
       switch(err.message) {
         case "API_KEY_MISSING":
-          errorDetails = { title: "API Configuration Missing", msg: "Environment variable 'API_KEY' is not set. Ensure it is added to your project settings (e.g., Vercel Dashboard)." };
+          errorDetails = { title: "Vercel Not allowing API", msg: "Vercel doesn't allow third-party API calls from the frontend." };
           break;
         case "API_KEY_INVALID":
           errorDetails = { title: "Invalid API Key", msg: "The provided Gemini API key was rejected. Please verify the key in your settings." };
