@@ -3,15 +3,14 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
 /**
- * Robust API key retrieval for production environments.
- * Specifically checks for NEXT_PUBLIC_ prefix used by Vercel/Vite.
+ * Robust API key retrieval.
+ * Vercel REQUIRES the NEXT_PUBLIC_ prefix to expose variables to the browser.
  */
 const getApiKey = () => {
-  const key = (window as any).process?.env?.API_KEY ||
-              (window as any).process?.env?.NEXT_PUBLIC_API_KEY ||
-              process.env.API_KEY || 
+  const key = (window as any).process?.env?.NEXT_PUBLIC_API_KEY ||
+              (window as any).process?.env?.API_KEY ||
               process.env.NEXT_PUBLIC_API_KEY ||
-              (window as any).ENV?.API_KEY || 
+              process.env.API_KEY || 
               (window as any)._AI_STUDIO_API_KEY_;
   
   if (!key || key === 'undefined' || key === 'null' || key.length < 5 || key === 'process.env.API_KEY') {
@@ -24,8 +23,7 @@ const getApiKey = () => {
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    const isVercel = window.location.hostname.includes('vercel.app');
-    throw new Error(`MISSING_KEY_ENV:${isVercel ? "Vercel" : "Local"}`);
+    throw new Error("API_KEY_MISSING");
   }
 
   const ai = new GoogleGenAI({ apiKey });

@@ -25,7 +25,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStageIdx, setLoadingStageIdx] = useState(0);
-  const [error, setError] = useState<{title: string, msg: string, checklist?: string[]} | null>(null);
+  const [error, setError] = useState<{title: string, msg: string, checklist?: string[], showBridge?: boolean} | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +49,13 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
       };
       reader.onerror = (error) => reject(error);
     });
+  };
+
+  const handleOpenBridge = async () => {
+    if ((window as any).aistudio) {
+      await (window as any).aistudio.openSelectKey();
+      setError(null); // Clear error after attempting link
+    }
   };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -85,42 +92,31 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
       }
       onComplete(result);
     } catch (err: any) {
-      console.error("Synthesis caught error:", err);
-      
       let errorDetails = {
         title: "Synthesis Error",
         msg: err.message || "An unexpected error occurred during synthesis.",
-        checklist: [] as string[]
+        checklist: [] as string[],
+        showBridge: false
       };
 
-      if (err.message.startsWith("MISSING_KEY_ENV:")) {
-        const env = err.message.split(":")[1];
+      if (err.message === "API_KEY_MISSING") {
         errorDetails = {
           title: "Browser Key Missing",
-          msg: `The Gemini engine is active but can't find your API Key in the ${env} environment. Vercel hides environment variables from the browser by default.`,
+          msg: `Vercel hides environment variables from the browser. You must rename your Vercel variable to NEXT_PUBLIC_API_KEY for the app to see it.`,
           checklist: [
-            "Use the 'Establish Neural Bridge' button at the bottom of the screen.",
-            "If using Vercel, check that 'Production' is selected for the API_KEY variable.",
-            "Redeploy your Vercel project after updating any environment variables."
-          ]
+            "Rename 'API_KEY' to 'NEXT_PUBLIC_API_KEY' in Vercel Settings.",
+            "Redeploy the project in Vercel to apply the change.",
+            "OR: Use the button below to manually link a key temporarily."
+          ],
+          showBridge: true
         };
       } else if (err.message.startsWith("TECHNICAL_ERROR: ")) {
         errorDetails = { 
           title: "API Engine Failure", 
           msg: err.message.replace("TECHNICAL_ERROR: ", ""),
-          checklist: ["Check if your API key has billing enabled.", "Ensure the region you are in supports Gemini 3."]
+          checklist: ["Check if your API key has billing enabled.", "Ensure the region you are in supports Gemini 3."],
+          showBridge: true
         };
-      } else {
-        switch(err.message) {
-          case "API_KEY_MISSING":
-            errorDetails.title = "Neural Link Unconfigured";
-            errorDetails.msg = "No API Key detected. Please use the Neural Bridge button below.";
-            break;
-          case "EMPTY_INPUT":
-            errorDetails.title = "No Data Provided";
-            errorDetails.msg = "Please upload a resume file or paste text.";
-            break;
-        }
       }
       
       setError(errorDetails);
@@ -160,7 +156,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
         Cancel Synthesis
       </button>
 
-      <div className="bg-white dark:bg-slate-900 shadow-2xl rounded-[2.5rem] p-8 md:p-12 border border-gray-100 dark:border-slate-800">
+      <div className="bg-white dark:bg-slate-900 shadow-2xl rounded-[2.5rem] p-8 md:p-12 border border-gray-100 dark:border-slate-800 relative z-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
           <div>
             <h2 className="text-4xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">Evolve Your Persona</h2>
@@ -199,7 +195,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
               <p className="text-sm font-bold mb-6 leading-relaxed">{error.msg}</p>
               
               {error.checklist && error.checklist.length > 0 && (
-                <div className="space-y-3 pt-4 border-t border-red-200 dark:border-red-900/30">
+                <div className="space-y-3 pt-4 border-t border-red-200 dark:border-red-900/30 mb-6">
                   <p className="text-[10px] font-black uppercase tracking-widest text-red-700 dark:text-red-300 mb-2">Troubleshooting Checklist:</p>
                   {error.checklist.map((item, i) => (
                     <div key={i} className="flex items-start text-xs font-medium">
@@ -208,6 +204,17 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
                     </div>
                   ))}
                 </div>
+              )}
+
+              {error.showBridge && (
+                <button 
+                  type="button" 
+                  onClick={handleOpenBridge}
+                  className="w-full py-4 bg-red-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-xl shadow-lg hover:bg-red-700 transition-all cursor-target flex items-center justify-center"
+                >
+                  <span className="mr-3 animate-pulse">⚡</span>
+                  Establish Neural Bridge Now
+                </button>
               )}
             </div>
           )}
