@@ -4,7 +4,7 @@ import { AppState, ResumeData, AIPersona } from './types';
 import Landing from './components/Landing';
 import ResumeUpload from './components/ResumeUpload';
 import Dashboard from './components/Dashboard';
-import PublicView from './components/publicview_temp';
+import PublicView from './components/PublicView';
 import Auth from './components/Auth';
 import TargetCursor from './components/TargetCursor';
 import NotificationContainer from './components/NotificationContainer';
@@ -18,10 +18,6 @@ const App: React.FC = () => {
   const [currentResumeId, setCurrentResumeId] = useState<string | null>(null);
   const [session, setSession] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  
-  const [hasApiKey, setHasApiKey] = useState(false);
-  const [canUseBridge, setCanUseBridge] = useState(false);
-  const [showKeyModal, setShowKeyModal] = useState(false);
 
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || 
@@ -39,51 +35,6 @@ const App: React.FC = () => {
   const showConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
     setConfirmDialog({ title, message, onConfirm });
   }, []);
-
-  useEffect(() => {
-    const checkKeyStatus = async () => {
-      const globalKey = process.env.NEXT_PUBLIC_API_KEY || process.env.API_KEY;
-      const bridge = (window as any).aistudio;
-      
-      setCanUseBridge(!!bridge);
-
-      const envKeyExists = globalKey && 
-                           globalKey.length > 10 && 
-                           globalKey !== 'process.env.API_KEY' && 
-                           globalKey !== 'undefined';
-
-      if (envKeyExists) {
-        setHasApiKey(true);
-        setShowKeyModal(false);
-      } else if (bridge) {
-        try {
-          const selected = await bridge.hasSelectedApiKey();
-          setHasApiKey(selected);
-        } catch (e) {
-          setHasApiKey(false);
-        }
-      } else {
-        setHasApiKey(false);
-      }
-    };
-
-    checkKeyStatus();
-    const interval = setInterval(checkKeyStatus, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleOpenKeyPicker = async () => {
-    if ((window as any).aistudio) {
-      try {
-        await (window as any).aistudio.openSelectKey();
-        setHasApiKey(true);
-        setShowKeyModal(false);
-        showToast("Neural link established.");
-      } catch (err) {
-        showToast("Neural Bridge failed.", "error");
-      }
-    }
-  };
 
   useEffect(() => {
     if (darkMode) {
@@ -172,10 +123,6 @@ const App: React.FC = () => {
   }, [fetchUserHistory]);
 
   const handleStart = () => {
-    if (!hasApiKey && canUseBridge) {
-      setShowKeyModal(true);
-      return;
-    }
     if (session) {
       setAppState(savedResumes.length > 0 ? AppState.DASHBOARD : AppState.UPLOADING);
     } else {
@@ -213,68 +160,9 @@ const App: React.FC = () => {
     );
   }
 
-  const isPublicDomain = window.location.hostname.includes('vercel.app');
-
   return (
     <div className="min-h-screen transition-all duration-500 ease-in-out dark:bg-slate-950 dark:text-slate-100">
       <TargetCursor appState={appState} hideDefaultCursor={true} />
-
-      {/* Global Status Indicator */}
-      <div className="fixed top-6 right-6 z-[200] flex items-center">
-        <div className={`px-4 py-2 rounded-full border backdrop-blur-md flex items-center space-x-2 transition-all duration-500 ${hasApiKey ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-red-500/10 border-red-500/20 text-red-500 animate-pulse'}`}>
-          <div className={`w-2 h-2 rounded-full ${hasApiKey ? 'bg-green-500' : 'bg-red-500'}`}></div>
-          <span className="text-[9px] font-black uppercase tracking-widest">{hasApiKey ? 'Neural Link Active' : 'Neural Link Offline'}</span>
-        </div>
-      </div>
-
-      {/* Neural Link Modal */}
-      {showKeyModal && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-xl animate-fade-in">
-           <div className="bg-white dark:bg-slate-900 border border-indigo-500/20 shadow-2xl rounded-[3rem] p-10 max-w-md w-full text-center animate-scale-in">
-              <div className="w-20 h-20 bg-indigo-600 text-white rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-indigo-600/30">
-                 <span className="text-3xl animate-pulse">⚡</span>
-              </div>
-              <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-4 tracking-tight">Establish Neural Bridge</h3>
-              <p className="text-sm font-medium text-gray-500 dark:text-slate-400 mb-8 leading-relaxed">
-                {isPublicDomain 
-                  ? "Standard Vercel variables are hidden from the browser. Please rename 'API_KEY' to 'NEXT_PUBLIC_API_KEY' in your Vercel settings and redeploy." 
-                  : "Your Gemini API Key is required to power the synthesis engine."}
-              </p>
-              <button 
-                onClick={handleOpenKeyPicker}
-                className="w-full py-5 bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.3em] rounded-2xl shadow-xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-target mb-4 relative z-10"
-              >
-                Connect API Key via Bridge
-              </button>
-              <button 
-                onClick={() => setShowKeyModal(false)}
-                className="text-[10px] font-black text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-white uppercase tracking-widest transition-colors cursor-target relative z-10"
-              >
-                Dismiss
-              </button>
-           </div>
-        </div>
-      )}
-
-      {!hasApiKey && appState !== AppState.LANDING && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] animate-fade-in-up w-full max-w-sm px-4">
-           {canUseBridge ? (
-             <button 
-                onClick={handleOpenKeyPicker}
-                className="w-full py-4 bg-red-600 text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl shadow-2xl hover:bg-red-700 transition-all cursor-target flex items-center justify-center"
-              >
-                <span className="mr-3 animate-ping">⚡</span>
-                Neural Engine Required: Link Key
-              </button>
-           ) : isPublicDomain ? (
-             <div className="bg-red-500/20 border border-red-500/40 backdrop-blur-xl rounded-2xl p-5 text-center shadow-2xl">
-                <p className="text-red-500 text-[10px] font-black uppercase tracking-widest leading-relaxed">
-                  System Critical: Rename Vercel key to NEXT_PUBLIC_API_KEY and redeploy.
-                </p>
-             </div>
-           ) : null}
-        </div>
-      )}
 
       <NotificationContainer toast={notification} confirm={confirmDialog} onCloseConfirm={() => setConfirmDialog(null)} />
       
@@ -293,7 +181,7 @@ const App: React.FC = () => {
       {appState === AppState.PUBLIC_VIEW && currentResume && currentPersona && currentResumeId && (
         <PublicView resume={currentResume} persona={currentPersona} resumeId={currentResumeId} toggleDarkMode={toggleDarkMode} darkMode={darkMode} showToast={showToast} showConfirm={showConfirm} />
       )}
-
+      
       {appState === AppState.DASHBOARD && currentResume && currentPersona && (
         <Dashboard 
           resume={currentResume} persona={currentPersona} savedResumes={savedResumes}

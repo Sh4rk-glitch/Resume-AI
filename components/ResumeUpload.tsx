@@ -25,7 +25,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStageIdx, setLoadingStageIdx] = useState(0);
-  const [error, setError] = useState<{title: string, msg: string, checklist?: string[], showBridge?: boolean} | null>(null);
+  const [error, setError] = useState<{title: string, msg: string, checklist?: string[], isBrowserRestricted?: boolean} | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -49,19 +49,6 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
       };
       reader.onerror = (error) => reject(error);
     });
-  };
-
-  const handleOpenBridge = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if ((window as any).aistudio) {
-      try {
-        await (window as any).aistudio.openSelectKey();
-        setError(null); 
-      } catch (err) {
-        console.error("Bridge failed:", err);
-      }
-    }
   };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -102,27 +89,27 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
         title: "Synthesis Error",
         msg: err.message || "An unexpected error occurred during synthesis.",
         checklist: [] as string[],
-        showBridge: false
+        isBrowserRestricted: false
       };
 
-      if (err.message === "API_KEY_MISSING") {
+      if (err.message === "API_KEY_BROWSER_RESTRICTION") {
         errorDetails = {
-          title: "Browser Key Missing",
-          msg: `The Gemini engine is active but can't find your API Key in the Vercel environment. Vercel hides environment variables from the browser by default.`,
+          title: "Vercel Browser Restriction",
+          msg: `When hosted on Vercel, the application is restricted from accessing the API Key directly in the browser for security reasons.`,
           checklist: [
-            "Rename 'API_KEY' to 'NEXT_PUBLIC_API_KEY' in Vercel settings.",
-            "In Vercel, ensure 'Production' environment is CHECKED for this variable.",
-            "Redeploy your Vercel project after updating settings.",
-            "OR: Establish a temporary link using the button below."
+            "You can run this application locally to use your own credentials.",
+            "Visit: github.com/Sh4rk-glitch/Resume-AI",
+            "Create a .env.local file in the root directory.",
+            "Add: GEMINI_API_KEY=\"YOUR_API_KEY\""
           ],
-          showBridge: true
+          isBrowserRestricted: true
         };
-      } else if (err.message.includes("API_KEY_INVALID")) {
+      } else if (err.message === "API_KEY_INVALID") {
          errorDetails = {
           title: "Invalid API Key",
-          msg: "The provided key was rejected by Google Gemini.",
-          checklist: ["Check for trailing spaces in your Vercel variable.", "Ensure your API key is active in Google AI Studio."],
-          showBridge: true
+          msg: "The API Key provided is invalid or has expired.",
+          checklist: ["Check your local .env.local file for typos.", "Ensure the key is active in Google AI Studio."],
+          isBrowserRestricted: false
         };
       }
       
@@ -202,28 +189,18 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
               <p className="text-sm font-bold mb-6 leading-relaxed">{error.msg}</p>
               
               {error.checklist && error.checklist.length > 0 && (
-                <div className="space-y-3 pt-4 border-t border-red-200 dark:border-red-900/30 mb-8">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-red-700 dark:text-red-300 mb-2">Required Infrastructure Fixes:</p>
+                <div className="space-y-3 pt-6 border-t border-red-200 dark:border-red-900/30">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-red-700 dark:text-red-300 mb-2">Instructions for Local Synthesis:</p>
                   {error.checklist.map((item, i) => (
                     <div key={i} className="flex items-start text-xs font-medium">
                       <span className="mr-3 mt-1.5 w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></span>
-                      <span>{item}</span>
+                      {item.includes('github.com') ? (
+                        <a href={`https://${item}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-red-800 transition-colors cursor-target">{item}</a>
+                      ) : (
+                        <span>{item}</span>
+                      )}
                     </div>
                   ))}
-                </div>
-              )}
-
-              {error.showBridge && (
-                <div className="relative z-[200]">
-                  <button 
-                    type="button" 
-                    onClick={handleOpenBridge}
-                    className="w-full py-5 bg-red-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-red-600/30 hover:bg-red-700 transition-all cursor-target flex items-center justify-center border-2 border-white/20"
-                  >
-                    <span className="mr-3 animate-ping">⚡</span>
-                    Establish Neural Bridge Now
-                  </button>
-                  <p className="text-center text-[9px] font-black uppercase tracking-widest mt-4 opacity-60">Manual bypass for local testing</p>
                 </div>
               )}
             </div>

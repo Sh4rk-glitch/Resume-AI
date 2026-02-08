@@ -3,16 +3,16 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
 /**
- * Robust API key retrieval for production environments.
- * Checks standard process.env and browser shims.
+ * Robust API key retrieval.
+ * Checks for standard naming conventions.
  */
 const getApiKey = () => {
-  // In Vercel, client-side variables MUST be prefixed with NEXT_PUBLIC_
-  const key = (window as any).process?.env?.API_KEY ||
+  const key = (window as any).process?.env?.GEMINI_API_KEY ||
               (window as any).process?.env?.NEXT_PUBLIC_API_KEY ||
-              process.env.API_KEY || 
+              (window as any).process?.env?.API_KEY ||
+              process.env.GEMINI_API_KEY ||
               process.env.NEXT_PUBLIC_API_KEY ||
-              (window as any)._AI_STUDIO_API_KEY_;
+              process.env.API_KEY;
   
   if (!key || typeof key !== 'string' || key.length < 10 || key.includes('process.env')) {
     return null;
@@ -24,7 +24,7 @@ const getApiKey = () => {
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("API_KEY_MISSING");
+    throw new Error("API_KEY_BROWSER_RESTRICTION");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -115,7 +115,7 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
     return JSON.parse(text);
   } catch (err: any) {
     const msg = err.message || "";
-    if (msg.includes("API key")) throw new Error(`API_KEY_INVALID: ${msg}`);
+    if (msg.includes("API key")) throw new Error(`API_KEY_INVALID`);
     throw new Error(`TECHNICAL_ERROR: ${msg}`);
   }
 };
