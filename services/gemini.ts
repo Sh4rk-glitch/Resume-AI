@@ -3,16 +3,24 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
 /**
- * Robust API key retrieval.
+ * Diagnostic helper to find the API key in various deployment environments.
  */
 const getApiKey = () => {
-  // Check common global injection points
-  const key = process.env.API_KEY || (window as any).process?.env?.API_KEY || (window as any).ENV?.API_KEY;
+  // Priority 1: process.env (Standard)
+  // Priority 2: window.process.env (Vercel/Shim)
+  // Priority 3: Global window variables (Custom bridges)
+  const key = process.env.API_KEY || 
+              (window as any).process?.env?.API_KEY || 
+              (window as any).ENV?.API_KEY ||
+              (window as any)._AI_STUDIO_API_KEY_;
   
   if (!key || key === 'undefined' || key === 'null' || key.length < 5) {
-    console.warn("Gemini API Key detection failed. Found:", key);
+    console.warn("Gemini Engine: No valid API key detected in process.env or window. Found:", key);
     return null;
   }
+  
+  // Log masked key for debugging in the browser console
+  console.log(`Gemini Engine: Key detected (${key.substring(0, 4)}...${key.substring(key.length - 4)})`);
   return key;
 };
 
@@ -23,6 +31,7 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
   }
 
   const ai = new GoogleGenAI({ apiKey });
+  // Using the exact required model name
   const model = 'gemini-3-flash-preview';
 
   const parts = [];
@@ -52,9 +61,9 @@ OUTPUT FORMAT: Strict JSON only.
           
 PERSONA GENERATION RULES:
 1. 'name': Full name from header.
-2. 'tone': Describe their specific professional voice.
+2. 'tone': Professional voice description.
 3. 'identifier': A URL-safe unique slug.
-4. 'exampleResponses': 3 short, punchy answers.
+4. 'exampleResponses': 3 short answers.
 
 RESUME EXTRACTION RULES:
 - Capture 'summary', 'skills' (array), 'experience' (array), 'education' (array).` }
@@ -117,30 +126,26 @@ RESUME EXTRACTION RULES:
     });
 
     const text = response.text;
-    if (!text) throw new Error("The AI returned an empty response.");
+    if (!text) throw new Error("Empty response from AI engine.");
     
     try {
-      // Direct parse
       return JSON.parse(text);
     } catch (e) {
-      // Regex fallback if model includes conversational text
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
-      throw new Error(`Invalid JSON format received from AI: ${text.substring(0, 50)}...`);
+      if (jsonMatch) return JSON.parse(jsonMatch[0]);
+      throw new Error("AI returned malformed JSON content.");
     }
   } catch (err: any) {
-    console.error("Gemini Parse Failure:", err);
+    console.error("Gemini API Error Object:", err);
     
-    const errMsg = err.message || "";
-    if (errMsg.includes("API key")) throw new Error("API_KEY_INVALID");
-    if (errMsg.includes("429")) throw new Error("RATE_LIMIT");
-    if (errMsg.includes("Safety")) throw new Error("SAFETY_BLOCK");
-    if (errMsg.includes("quota")) throw new Error("QUOTA_EXCEEDED");
+    // Categorize common errors but preserve the message
+    const msg = err.message || "Unknown synthesis failure";
+    if (msg.includes("API key")) throw new Error(`API_KEY_INVALID: ${msg}`);
+    if (msg.includes("429")) throw new Error(`RATE_LIMIT: ${msg}`);
+    if (msg.includes("Safety")) throw new Error(`SAFETY_BLOCK: ${msg}`);
     
-    // Pass the raw error through for debugging in the UI
-    throw new Error(`TECHNICAL_ERROR: ${err.message || "Unknown synthesis failure"}`);
+    // Default to a technical error that ResumeUpload will display raw
+    throw new Error(`TECHNICAL_ERROR: ${msg}`);
   }
 };
 
@@ -193,8 +198,7 @@ export async function* chatWithPersonaStream(
       if (response.text) yield response.text;
     }
   } catch (error: any) {
-    console.error("Chat Stream Failure:", error);
-    if (error.message?.includes("API key")) throw new Error("API_KEY_INVALID");
+    console.error("Chat Error:", error);
     throw new Error(`TECHNICAL_ERROR: ${error.message}`);
   }
 }

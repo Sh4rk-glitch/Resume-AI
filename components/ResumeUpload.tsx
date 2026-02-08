@@ -85,39 +85,39 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onComplete, onBack }) => {
       }
       onComplete(result);
     } catch (err: any) {
-      console.error("Synthesis failed:", err);
+      console.error("Synthesis caught error:", err);
       
       let errorDetails = {
-        title: "Neural Synthesis Failed",
-        msg: "The document might be too complex or the connection was interrupted."
+        title: "Synthesis Error",
+        msg: err.message || "An unexpected error occurred during synthesis."
       };
 
+      // Handle specific codes from services/gemini.ts
       if (err.message.startsWith("TECHNICAL_ERROR: ")) {
         errorDetails = { 
-          title: "Engine Error", 
+          title: "API Engine Failure", 
           msg: err.message.replace("TECHNICAL_ERROR: ", "") 
         };
-      } else {
-        switch(err.message) {
-          case "API_KEY_MISSING":
-            errorDetails = { title: "API Configuration Missing", msg: "Environment variable 'API_KEY' is not set. Ensure it is added to your project settings and you have redeployed." };
-            break;
-          case "API_KEY_INVALID":
-            errorDetails = { title: "Invalid API Key", msg: "The provided Gemini API key was rejected by Google. Please verify the key in your AI Studio dashboard." };
-            break;
-          case "RATE_LIMIT":
-            errorDetails = { title: "Rate Limit Exceeded", msg: "Too many requests to the AI brain. Please wait a minute and try again." };
-            break;
-          case "SAFETY_BLOCK":
-            errorDetails = { title: "Safety Filter Block", msg: "The AI refused to process this content due to safety guidelines." };
-            break;
-          case "QUOTA_EXCEEDED":
-            errorDetails = { title: "Quota Exhausted", msg: "You have exceeded your Gemini API usage quota for the day." };
-            break;
-          case "EMPTY_INPUT":
-            errorDetails = { title: "No Input Found", msg: "Please provide resume content via file upload or text pasting." };
-            break;
-        }
+      } else if (err.message.startsWith("API_KEY_INVALID: ")) {
+        errorDetails = { 
+          title: "Invalid API Key", 
+          msg: "The key was rejected. Check your AI Studio dashboard and Vercel settings." 
+        };
+      } else if (err.message.startsWith("RATE_LIMIT: ")) {
+        errorDetails = { 
+          title: "Rate Limit Exceeded", 
+          msg: "Too many requests. Please wait 60 seconds." 
+        };
+      } else if (err.message === "API_KEY_MISSING") {
+        errorDetails = { 
+          title: "API Configuration Missing", 
+          msg: "The 'API_KEY' environment variable is not being picked up by the browser. Ensure it is set in Vercel and you have redeployed." 
+        };
+      } else if (err.message === "EMPTY_INPUT") {
+        errorDetails = { 
+          title: "Input Required", 
+          msg: "Please upload a file or paste resume text to begin." 
+        };
       }
       
       setError(errorDetails);
