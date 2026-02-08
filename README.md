@@ -12,4 +12,4 @@ Key Features
 - Interview prep, summaries, and tailored responses based on your résumé
 
 ### Why It Exists
-Traditional résumés are static. Resume AI makes them dynamic. Instead of reading a document, people can talk to your experience—getting instant answers, insights, and context that a résumé alone can’t provide.
+Traditional résumés are static. Resume AI makes them dynamic. Instead of reading a document, people can talk to your experience getting instant answers, insights, and context that a resume alone can’t provide.
