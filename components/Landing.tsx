@@ -113,7 +113,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onSignIn, isLoggedIn, toggle
         </h1>
         
         <p className="text-xl md:text-2xl text-gray-500 dark:text-slate-400 mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in-up delay-100">
-          We don't just parse files. We synthesize personas. Your professional history becomes a living dialogue on resume-ai.app.
+          We don't just parse files. We synthesize personas. Your professional history becomes a living dialogue on Resume AI.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-6 animate-fade-in-up delay-200">
