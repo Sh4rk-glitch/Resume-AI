@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// Always use import from "@google/genai" to comply with SDK guidelines
 import { GoogleGenAI } from "@google/genai"
-
-// Note: The API key is assumed to be available via process.env.API_KEY as per the @google/genai guidelines.
-// The manual 'process' definition has been removed to fix the "Cannot find name 'Deno'" error and adhere to the rule of not defining process.env.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,7 +14,8 @@ serve(async (req) => {
   }
 
   try {
-    // Initializing GoogleGenAI using the mandatory named parameter and process.env.API_KEY.
+    // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+    // Fixed: Removed the manual process shim that used Deno.env to resolve "Cannot find name 'Deno'".
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const { action, payload } = await req.json()
@@ -58,7 +57,7 @@ serve(async (req) => {
       }
       parts.push({ text: prompt })
 
-      // Using gemini-3-pro-preview for structured extraction and advanced reasoning task.
+      // Using gemini-3-pro-preview for structured extraction tasks as per task type guidelines
       const response = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
         contents: { parts },
@@ -67,7 +66,7 @@ serve(async (req) => {
         }
       })
 
-      // The 'text' property is used directly to extract the generated response.
+      // The property 'text' returns the extracted string output. Do not call as a function.
       return new Response(response.text, {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -83,7 +82,7 @@ serve(async (req) => {
         { role: 'user', parts: [{ text: message }] }
       ]
 
-      // Using gemini-3-flash-preview for general Q&A and chat interactions.
+      // Using gemini-3-flash-preview for chat interaction as per task type guidelines
       const responseStream = await ai.models.generateContentStream({ 
         model: "gemini-3-flash-preview",
         contents,
@@ -98,7 +97,7 @@ serve(async (req) => {
       const stream = new ReadableStream({
         async start(controller) {
           for await (const chunk of responseStream) {
-            // Accessing the .text property on the response chunk for streaming output.
+            // chunk.text returns the extracted string output.
             const text = chunk.text
             if (text) {
               controller.enqueue(new TextEncoder().encode(text))
@@ -119,7 +118,7 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
-    // Ensuring CORS headers are always returned even on API error.
+    // Return CORS headers even on failure to avoid browser 'Failed to fetch' errors.
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
