@@ -1,4 +1,3 @@
-
 import { ResumeData, AIPersona } from "../types";
 import { supabase } from "./supabase";
 
@@ -12,21 +11,27 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
     });
 
     if (error) {
-      console.error("Supabase Function Error:", error);
-      // If it's a CORS or Network error, it might not have a clean message
-      throw new Error(error.message || "Network link to neural engine failed. Check project secrets.");
+      console.error("Supabase Function Error Object:", error);
+      // Attempt to extract the custom message from the function response
+      let msg = "Network link to neural engine failed.";
+      try {
+        const errJson = await error.context?.json();
+        if (errJson?.error) msg = errJson.error;
+      } catch (e) {
+        msg = error.message || msg;
+      }
+      throw new Error(msg);
     }
     
     if (!data || !data.resume || !data.persona) {
-      throw new Error("The neural engine returned an incomplete synthesis. Please try again.");
+      throw new Error("The neural engine returned an incomplete synthesis. Check if the API key is valid.");
     }
 
     return data;
   } catch (err: any) {
     console.error("Synthesis Execution Context:", err);
-    // Be more descriptive about the 'Failed to fetch' error
     if (err.message?.includes("fetch")) {
-      throw new Error("Failed to reach the Edge Function. Ensure 'gemini' function is deployed and CORS is active.");
+      throw new Error("Failed to reach the Edge Function. Ensure the 'gemini' function is deployed to your Supabase project.");
     }
     throw new Error(err.message || "The synthesis engine encountered a fatal sequencing error.");
   }
@@ -55,9 +60,14 @@ export async function* chatWithPersonaStream(
   });
 
   if (!response.ok) {
-    const errText = await response.text();
-    console.error("Chat Stream Response Error:", errText);
-    throw new Error("Neural communication interrupted. Check Edge Function logs.");
+    let errText = "Neural communication interrupted.";
+    try {
+      const errJson = await response.json();
+      if (errJson?.error) errText = errJson.error;
+    } catch (e) {
+      errText = await response.text();
+    }
+    throw new Error(errText);
   }
 
   const reader = response.body?.getReader();

@@ -1,16 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { GoogleGenAI } from "https://esm.sh/@google/genai@1.38.0"
+import { GoogleGenAI } from "https://esm.sh/@google/genai"
 
-// Supabase Edge Functions run on Deno, which lacks the 'process' global.
-// We provide this shim so that 'process.env.API_KEY' works exactly as required by the SDK guidelines.
-// @ts-ignore: Defining global process for SDK compatibility
-globalThis.process = {
-  env: new Proxy({}, {
-    // Access Deno via globalThis to prevent TypeScript "Cannot find name 'Deno'" error
-    get: (_target, prop: string) => (globalThis as any).Deno.env.get(prop)
-  })
-};
-
+// CORS headers for cross-origin requests from the frontend
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token',
@@ -23,8 +14,8 @@ serve(async (req) => {
   }
 
   try {
-    // The SDK initialization MUST use process.env.API_KEY per guidelines.
-    // Our shim above makes this valid in the Deno environment.
+    // Initialize using the mandatory named parameter and process.env.API_KEY.
+    // As per coding guidelines, assume process.env.API_KEY is pre-configured and accessible.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const { action, payload } = await req.json()
@@ -66,7 +57,8 @@ serve(async (req) => {
       }
       parts.push({ text: prompt })
 
-      // Use Pro model for complex extraction tasks
+      // Using gemini-3-pro-preview for complex extraction and synthesis tasks.
+      // Call generateContent directly with the model name and contents.
       const response = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
         contents: { parts },
@@ -75,6 +67,7 @@ serve(async (req) => {
         }
       })
 
+      // Use the .text property (not a method) to extract string output from GenerateContentResponse.
       return new Response(response.text, {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -90,10 +83,10 @@ serve(async (req) => {
         { role: 'user', parts: [{ text: message }] }
       ]
 
-      // Use Flash model for real-time chat interactions
+      // Using gemini-3-flash-preview for high-performance streaming chat responses.
       const responseStream = await ai.models.generateContentStream({ 
         model: "gemini-3-flash-preview",
-        contents,
+        contents: contents,
         config: {
           systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}. Description: ${persona.description}. 
           You are the digital twin of the person described in this resume: ${JSON.stringify(resumeData)}. 
@@ -105,6 +98,7 @@ serve(async (req) => {
       const stream = new ReadableStream({
         async start(controller) {
           for await (const chunk of responseStream) {
+            // chunk.text is a property that returns the string segment for streaming.
             const text = chunk.text
             if (text) {
               controller.enqueue(new TextEncoder().encode(text))
@@ -125,7 +119,8 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
-    // CRITICAL: Always return CORS headers on error so the frontend can read the error message.
+    console.error("Neural Execution Failure:", error);
+    // Ensure CORS headers are included even in error responses.
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
