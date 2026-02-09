@@ -1,6 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-// Always use import from "@google/genai" to comply with SDK guidelines
-import { GoogleGenAI } from "@google/genai"
+import { GoogleGenAI } from "https://esm.sh/@google/genai@1.38.0"
+
+// Supabase Edge Functions run on Deno, which lacks the 'process' global.
+// We provide this shim so that 'process.env.API_KEY' works exactly as required by the SDK guidelines.
+// @ts-ignore: Defining global process for SDK compatibility
+globalThis.process = {
+  env: new Proxy({}, {
+    // Access Deno via globalThis to prevent TypeScript "Cannot find name 'Deno'" error
+    get: (_target, prop: string) => (globalThis as any).Deno.env.get(prop)
+  })
+};
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,8 +23,8 @@ serve(async (req) => {
   }
 
   try {
-    // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-    // Fixed: Removed the manual process shim that used Deno.env to resolve "Cannot find name 'Deno'".
+    // The SDK initialization MUST use process.env.API_KEY per guidelines.
+    // Our shim above makes this valid in the Deno environment.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const { action, payload } = await req.json()
@@ -57,7 +66,7 @@ serve(async (req) => {
       }
       parts.push({ text: prompt })
 
-      // Using gemini-3-pro-preview for structured extraction tasks as per task type guidelines
+      // Use Pro model for complex extraction tasks
       const response = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
         contents: { parts },
@@ -66,7 +75,6 @@ serve(async (req) => {
         }
       })
 
-      // The property 'text' returns the extracted string output. Do not call as a function.
       return new Response(response.text, {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -82,7 +90,7 @@ serve(async (req) => {
         { role: 'user', parts: [{ text: message }] }
       ]
 
-      // Using gemini-3-flash-preview for chat interaction as per task type guidelines
+      // Use Flash model for real-time chat interactions
       const responseStream = await ai.models.generateContentStream({ 
         model: "gemini-3-flash-preview",
         contents,
@@ -97,7 +105,6 @@ serve(async (req) => {
       const stream = new ReadableStream({
         async start(controller) {
           for await (const chunk of responseStream) {
-            // chunk.text returns the extracted string output.
             const text = chunk.text
             if (text) {
               controller.enqueue(new TextEncoder().encode(text))
@@ -118,7 +125,7 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
-    // Return CORS headers even on failure to avoid browser 'Failed to fetch' errors.
+    // CRITICAL: Always return CORS headers on error so the frontend can read the error message.
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
