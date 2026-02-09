@@ -11,11 +11,24 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
       }
     });
 
-    if (error) throw new Error(error.message || "Synthesis engine unreachable.");
+    if (error) {
+      console.error("Supabase Function Error:", error);
+      // If it's a CORS or Network error, it might not have a clean message
+      throw new Error(error.message || "Network link to neural engine failed. Check project secrets.");
+    }
+    
+    if (!data || !data.resume || !data.persona) {
+      throw new Error("The neural engine returned an incomplete synthesis. Please try again.");
+    }
+
     return data;
   } catch (err: any) {
-    console.error("Synthesis Error:", err);
-    throw new Error(err.message || "The neural engine is currently unavailable.");
+    console.error("Synthesis Execution Context:", err);
+    // Be more descriptive about the 'Failed to fetch' error
+    if (err.message?.includes("fetch")) {
+      throw new Error("Failed to reach the Edge Function. Ensure 'gemini' function is deployed and CORS is active.");
+    }
+    throw new Error(err.message || "The synthesis engine encountered a fatal sequencing error.");
   }
 };
 
@@ -43,7 +56,8 @@ export async function* chatWithPersonaStream(
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(errText || "Neural link failed.");
+    console.error("Chat Stream Response Error:", errText);
+    throw new Error("Neural communication interrupted. Check Edge Function logs.");
   }
 
   const reader = response.body?.getReader();

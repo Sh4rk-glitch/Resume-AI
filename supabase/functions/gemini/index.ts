@@ -1,6 +1,8 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { GoogleGenAI } from "@google/genai"
+import { GoogleGenAI } from "https://esm.sh/@google/genai@1.38.0"
+
+// API_KEY is assumed to be pre-configured and accessible via process.env.API_KEY per guidelines.
+// Removed the manual shim that incorrectly referenced the Deno global.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +17,7 @@ serve(async (req) => {
 
   try {
     // The API key must be obtained exclusively from process.env.API_KEY.
+    // Always use new GoogleGenAI({apiKey: process.env.API_KEY});
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const { action, payload } = await req.json()
@@ -56,6 +59,7 @@ serve(async (req) => {
       }
       parts.push({ text: prompt })
 
+      // Generate content using gemini-3-flash-preview for parsing tasks.
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: { parts },
@@ -64,6 +68,7 @@ serve(async (req) => {
         }
       })
 
+      // Use property .text directly from response.
       return new Response(response.text, {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -79,6 +84,7 @@ serve(async (req) => {
         { role: 'user', parts: [{ text: message }] }
       ]
 
+      // Generate content stream for chat functionality.
       const responseStream = await ai.models.generateContentStream({ 
         model: "gemini-3-flash-preview",
         contents,
@@ -93,6 +99,7 @@ serve(async (req) => {
       const stream = new ReadableStream({
         async start(controller) {
           for await (const chunk of responseStream) {
+            // Use property .text from chunk response.
             const text = chunk.text
             if (text) {
               controller.enqueue(new TextEncoder().encode(text))
@@ -113,6 +120,7 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
+    // CRITICAL: Always return corsHeaders even on failure to avoid browser 'Failed to send request' errors.
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
