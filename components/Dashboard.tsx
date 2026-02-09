@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ResumeData, AIPersona } from '../types';
 import ChatPanel from './ChatPanel';
