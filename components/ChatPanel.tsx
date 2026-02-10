@@ -60,7 +60,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     if (isWriting || typewriterQueue.current.length > 0) {
       interval = window.setInterval(() => {
         if (typewriterQueue.current.length > 0 && typewriterTargetId.current) {
-          const count = typewriterQueue.current.length > 50 ? 5 : 2; 
+          const count = typewriterQueue.current.length > 50 ? 8 : 3; 
           const nextChars = typewriterQueue.current.slice(0, count);
           typewriterQueue.current = typewriterQueue.current.slice(count);
           
@@ -77,7 +77,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
           }
           typewriterTargetId.current = null;
         }
-      }, 20);
+      }, 15);
     }
     return () => clearInterval(interval);
   }, [isWriting, isTyping, resumeId, messages]);
@@ -126,8 +126,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: '', timestamp: new Date() }]);
 
     try {
-      const history = messages.filter(m => m.content && m.content.trim() !== '').map(m => ({ role: m.role, content: m.content }));
-      const stream = chatWithPersonaStream(input, history, resume, persona);
+      const chatHistory = messages
+        .filter(m => m.content && m.content.trim() !== '')
+        .map(m => ({ role: m.role, content: m.content }));
+        
+      const stream = chatWithPersonaStream(input, chatHistory, resume, persona);
       
       let hasReceivedData = false;
       for await (const chunk of stream) {
@@ -137,11 +140,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
       }
       
       if (!hasReceivedData) {
-        throw new Error("The AI provided an empty stream response.");
+        throw new Error("The AI provided an empty response.");
       }
     } catch (err: any) {
       console.error("Chat Execution Error:", err);
-      let errorMessage = `Neural Link Error: ${err.message || "Unknown error occurred"}`;
+      const errorMessage = `Neural Link Error: ${err.message || "Connection interrupted"}`;
       setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: errorMessage } : m));
       showToast("Neural link failed.", "error");
     } finally {

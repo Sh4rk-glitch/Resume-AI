@@ -3,20 +3,26 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
 /**
+ * Initializes the Gemini AI client.
+ * Note: process.env.API_KEY is injected by the environment.
+ */
+const getAIClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY is missing from the environment. Please ensure it is configured.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+/**
  * Parses raw resume text or file data into structured ResumeData and an AIPersona.
  * Uses Gemini 3 Pro for advanced reasoning and high-fidelity extraction.
  */
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("Neural link failed: API_KEY is missing from the environment. Ensure the key is injected as process.env.API_KEY.");
-  }
-
-  // Create client immediately before use per coding guidelines
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = getAIClient();
   
   try {
-    const model = "gemini-3-pro-preview"; // Upgraded to Pro for complex synthesis
+    const model = "gemini-3-pro-preview"; // High-reasoning model for extraction
     
     const prompt = `Act as an expert career strategist. Extract structured career data from the provided resume material and synthesize a high-fidelity professional AI persona. 
     The persona should have a unique tone based on the user's experience and should be able to answer questions about their background autonomously.
@@ -99,17 +105,18 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
     });
 
     const text = response.text;
-    if (!text) throw new Error("Neural engine returned an empty sequence.");
+    if (!text) throw new Error("The AI model returned an empty response.");
     
     return JSON.parse(text);
   } catch (err: any) {
     console.error("Synthesis Fatal Error:", err);
-    throw new Error(err.message || "Synthesis interrupted. Verify network and configuration.");
+    throw new Error(err.message || "Synthesis interrupted. Please check your internet connection.");
   }
 };
 
 /**
  * Conducts a stateful, streaming conversation with the synthesized persona.
+ * Uses Gemini 3 Flash for low-latency chat.
  */
 export async function* chatWithPersonaStream(
   message: string, 
@@ -117,10 +124,7 @@ export async function* chatWithPersonaStream(
   resumeData: ResumeData, 
   persona: AIPersona
 ) {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("Neural Stream Error: API_KEY missing.");
-  
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = getAIClient();
 
   try {
     const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. 
@@ -135,11 +139,10 @@ export async function* chatWithPersonaStream(
       parts: [{ text: h.content }]
     }));
 
-    contents.push({ role: 'user', parts: [{ text: message }] });
-
+    // Start a stream
     const responseStream = await ai.models.generateContentStream({
       model: "gemini-3-flash-preview",
-      contents,
+      contents: [...contents, { role: 'user', parts: [{ text: message }] }],
       config: {
         systemInstruction,
         temperature: 0.8,
@@ -155,6 +158,6 @@ export async function* chatWithPersonaStream(
     }
   } catch (err: any) {
     console.error("Neural Stream Interrupted:", err);
-    throw new Error(err.message || "Neural communication interrupted.");
+    throw new Error(err.message || "Communication with the neural engine was interrupted.");
   }
 }
