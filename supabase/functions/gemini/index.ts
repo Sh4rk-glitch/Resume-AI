@@ -1,187 +1,181 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-// Import GoogleGenAI and Type from @google/genai via esm.sh for Deno compatibility
-import { GoogleGenAI, Type } from "https://esm.sh/@google/genai"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token',
 }
 
-// Fix: Use @ts-ignore to suppress "Cannot find name 'Deno'" as it is a global available at runtime in Supabase Edge Functions
-// @ts-ignore
-const API_KEY = Deno.env.get("API_KEY");
-
-// Guidelines: Always use process.env.API_KEY. We shim it for the Deno environment.
-// @ts-ignore
-globalThis.process = {
-  env: {
-    API_KEY: API_KEY
-  }
-};
-
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // Guidelines: Always use the process.env.API_KEY environment variable.
-    // @ts-ignore
-    const key = process.env.API_KEY;
-    if (!key) {
-      throw new Error("API_KEY not found in environment. Please configure it in Supabase secrets.");
+    // @ts-ignore: Deno is global in Supabase environment
+    const apiKey = Deno.env.get("API_KEY");
+    
+    if (!apiKey) {
+      console.error("API_KEY missing from environment");
+      return new Response(
+        JSON.stringify({ error: "API_KEY not found in Supabase Secrets. Please run: supabase secrets set API_KEY=your_key" }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { action, payload } = await req.json();
-    // Initialize the Gemini client using the mandatory initialization pattern
-    const ai = new GoogleGenAI({ apiKey: key });
+    const PROXY_ENDPOINT = "https://ai.hackclub.com/proxy/v1/chat/completions";
 
     if (action === 'parse') {
-      const prompt = "Act as an expert career strategist. Extract structured career data from the following material and synthesize a professional AI persona. Return only valid JSON.";
-      
-      const contents: any[] = [];
+      const systemMsg = "You are a professional resume parser. Output ONLY valid JSON. No conversational filler.";
+      const userContent: any[] = [
+        { 
+          type: "text", 
+          text: `Act as an expert career strategist. Extract structured career data and synthesize a professional AI persona. 
+          Output MUST be strict JSON matching this structure:
+          {
+            "resume": { "name": "", "title": "", "summary": "", "skills": [], "experience": [], "education": [], "certifications": [] },
+            "persona": { "name": "", "tone": "", "strengths": [], "expertise": [], "description": "", "identifier": "", "exampleResponses": [] }
+          }`
+        }
+      ];
+
       if (typeof payload === 'string') {
-        contents.push({ role: 'user', parts: [{ text: `${prompt}\n\nResume Material:\n${payload}` }] });
+        userContent.push({ type: "text", text: `RESUME DATA:\n${payload}` });
       } else {
-        contents.push({
-          role: 'user',
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: payload.mimeType,
-                data: payload.data
-              }
-            }
-          ]
+        userContent.push({
+          type: "file",
+          file: {
+            filename: "resume.pdf",
+            file_data: `data:${payload.mimeType};base64,${payload.data}`
+          }
         });
       }
 
-      // Use gemini-3-flash-preview for efficient text extraction and JSON generation
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              resume: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  title: { type: Type.STRING },
-                  summary: { type: Type.STRING },
-                  skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  experience: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        role: { type: Type.STRING },
-                        company: { type: Type.STRING },
-                        duration: { type: Type.STRING },
-                        description: { type: Type.ARRAY, items: { type: Type.STRING } }
-                      },
-                      required: ["role", "company", "duration", "description"]
-                    }
-                  },
-                  education: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        degree: { type: Type.STRING },
-                        institution: { type: Type.STRING },
-                        year: { type: Type.STRING }
-                      },
-                      required: ["degree", "institution", "year"]
-                    }
-                  },
-                  certifications: { type: Type.ARRAY, items: { type: Type.STRING } }
-                },
-                required: ["name", "title", "summary", "skills", "experience", "education", "certifications"]
-              },
-              persona: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  tone: { type: Type.STRING },
-                  strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  expertise: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  description: { type: Type.STRING },
-                  identifier: { type: Type.STRING },
-                  exampleResponses: { type: Type.ARRAY, items: { type: Type.STRING } }
-                },
-                required: ["name", "tone", "strengths", "expertise", "description", "identifier", "exampleResponses"]
-              }
-            },
-            required: ["resume", "persona"]
-          }
-        }
+      const response = await fetch(PROXY_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemMsg },
+            { role: "user", content: userContent }
+          ],
+          response_format: { type: "json_object" }
+        })
       });
 
-      return new Response(response.text, {
+      const result = await response.json();
+      if (!response.ok) {
+        console.error("Proxy Parse Error:", result);
+        throw new Error(result.error?.message || "Hack Club Proxy Error during parsing");
+      }
+
+      return new Response(result.choices[0].message.content, {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
 
     } else if (action === 'chat') {
       const { message, history, resumeData, persona } = payload;
       
-      const systemInstruction = `You are ${persona.name}. 
-      Tone: ${persona.tone}. 
-      Expertise: ${persona.expertise.join(', ')}.
-      Background: ${persona.description}.
-      Resume Data: ${JSON.stringify(resumeData)}.
-      You are the digital twin of this professional. Speak directly to recruiters as an autonomous agent. Use Markdown.`;
+      const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. 
+      Background: ${persona.description}. 
+      Resume Context: ${JSON.stringify(resumeData)}. 
+      Speak as this person's autonomous digital twin. Use markdown for bolding and structure.`;
 
-      // Convert conversation history to Gemini-compatible format
-      const geminiContents = [
+      const messages = [
+        { role: "system", content: systemInstruction },
         ...history.map((h: any) => ({
-          role: h.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: h.content }]
+          role: h.role === 'assistant' ? 'assistant' : 'user',
+          content: h.content
         })),
-        { role: 'user', parts: [{ text: message }] }
+        { role: "user", content: message }
       ];
 
-      // Use gemini-3-flash-preview for low-latency conversational streaming
-      const streamResponse = await ai.models.generateContentStream({
-        model: 'gemini-3-flash-preview',
-        contents: geminiContents,
-        config: {
-          systemInstruction
-        }
+      const response = await fetch(PROXY_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages,
+          stream: true
+        })
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Proxy Chat Error:", errorData);
+        throw new Error(errorData.error?.message || "Chat session link failed");
+      }
 
       const stream = new ReadableStream({
         async start(controller) {
-          for await (const chunk of streamResponse) {
-            // Extract generated text from the chunk using the response.text property
-            const text = chunk.text;
-            if (text) {
-              controller.enqueue(new TextEncoder().encode(text));
+          const reader = response.body?.getReader();
+          if (!reader) return;
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const cleanedLine = line.trim();
+                if (!cleanedLine || cleanedLine === "data: [DONE]") continue;
+                if (cleanedLine.startsWith("data: ")) {
+                  try {
+                    const data = JSON.parse(cleanedLine.slice(6));
+                    const content = data.choices[0]?.delta?.content || "";
+                    if (content) {
+                      controller.enqueue(new TextEncoder().encode(content));
+                    }
+                  } catch (e) {
+                    // Ignore partial JSON chunks
+                  }
+                }
+              }
             }
+          } catch (err) {
+            console.error("Stream reader error:", err);
+            controller.error(err);
+          } finally {
+            controller.close();
           }
-          controller.close();
         }
       });
 
       return new Response(stream, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' },
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        },
       });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action" }), {
+    return new Response(JSON.stringify({ error: "Unsupported action" }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error: any) {
-    console.error("Supabase Edge Function Neural Error:", error);
+    console.error("Edge Function Fatal Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+})
