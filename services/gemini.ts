@@ -1,129 +1,85 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
+// HACK CLUB PROXY CONFIGURATION
+const PROXY_ENDPOINT = "https://ai.hackclub.com/proxy/v1/chat/completions";
+const DEFAULT_MODEL = "google/gemini-2.0-flash-exp"; // High-speed multimodal model available via proxy
+const HARDCODED_KEY = "sk-hc-v1-f1367f169e0144f1b5116b599e284228d844ff19490e4e6e9b449991c497554a";
+
 /**
- * Lazy-initializes the Gemini API client with a multi-layered key resolution strategy.
+ * Resolves the API Key with a focus on stability for Vercel/HackClub.
  */
-const getAIClient = () => {
-  // 1. Check window.process.env (set by our HTML shim)
-  // 2. Check process.env (Node/Bundler injection)
-  // 3. Check NEXT_PUBLIC specifically for Vercel
-  const apiKey = 
+const getApiKey = () => {
+  return (
+    HARDCODED_KEY ||
     (window as any).process?.env?.API_KEY || 
-    (window as any).process?.env?.NEXT_PUBLIC_API_KEY || 
     (process.env as any)?.API_KEY || 
-    (process.env as any)?.NEXT_PUBLIC_API_KEY;
-  
-  if (!apiKey || apiKey.trim() === "") {
-    console.error("Neural Link Failure: API Key Resolution returned null or empty.");
-    throw new Error("Neural Link Offline: API_KEY is missing. Ensure the Vercel env var 'NEXT_PUBLIC_API_KEY' is set or use the hardcoded fallback in index.html.");
-  }
-  
-  return new GoogleGenAI({ apiKey });
+    (process.env as any)?.NEXT_PUBLIC_API_KEY
+  );
 };
 
 /**
  * Parses raw resume text or file data into structured ResumeData and an AIPersona.
- * Uses gemini-3-flash-preview for high-speed, multimodal PDF extraction.
+ * Uses a direct fetch to the Hack Club Proxy for multimodal extraction.
  */
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
-  const ai = getAIClient();
-  const prompt = `Act as an expert career strategist and professional identity designer. 
-  Step 1: Extract all professional data from the provided material.
-  Step 2: Synthesize a high-fidelity AI persona that captures the professional "tone" and unique expertise of this person.
-  Step 3: Generate a unique URL identifier based on their name.`;
+  const apiKey = getApiKey();
+  const systemPrompt = `Act as an expert career strategist and professional identity designer. 
+  Extract all professional data from the provided material and synthesize a high-fidelity AI persona.
+  
+  IMPORTANT: You must respond ONLY with a valid JSON object.
+  Format:
+  {
+    "resume": { "name": "string", "title": "string", "summary": "string", "skills": [], "experience": [{"role": "string", "company": "string", "duration": "string", "description": []}], "education": [], "certifications": [] },
+    "persona": { "name": "string", "tone": "string", "strengths": [], "expertise": [], "description": "string", "identifier": "string", "exampleResponses": [] }
+  }`;
 
-  const responseSchema = {
-    type: Type.OBJECT,
-    properties: {
-      resume: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          title: { type: Type.STRING },
-          summary: { type: Type.STRING },
-          skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-          experience: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                role: { type: Type.STRING },
-                company: { type: Type.STRING },
-                duration: { type: Type.STRING },
-                description: { type: Type.ARRAY, items: { type: Type.STRING } }
-              },
-              required: ["role", "company", "duration", "description"]
-            }
-          },
-          education: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                degree: { type: Type.STRING },
-                institution: { type: Type.STRING },
-                year: { type: Type.STRING }
-              }
-            }
-          },
-          certifications: { type: Type.ARRAY, items: { type: Type.STRING } }
-        },
-        required: ["name", "title", "summary", "skills", "experience", "education", "certifications"]
-      },
-      persona: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          tone: { type: Type.STRING, description: "Describe the professional speaking style (e.g., Visionary, Pragmatic, Technical Leader)" },
-          strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-          expertise: { type: Type.ARRAY, items: { type: Type.STRING } },
-          description: { type: Type.STRING, description: "A first-person manifesto for the persona." },
-          identifier: { type: Type.STRING, description: "A lowercase url-safe slug based on their name." },
-          exampleResponses: { type: Type.ARRAY, items: { type: Type.STRING } }
-        },
-        required: ["name", "tone", "strengths", "expertise", "description", "identifier", "exampleResponses"]
-      }
-    },
-    required: ["resume", "persona"]
-  };
-
-  let contents;
+  let userContent: any;
   if (typeof input === 'string') {
-    contents = { parts: [{ text: input }, { text: prompt }] };
+    userContent = [{ type: "text", text: input }];
   } else {
-    contents = {
-      parts: [
-        { 
-          inlineData: { 
-            data: input.data, 
-            mimeType: input.mimeType 
-          } 
-        },
-        { text: prompt }
-      ]
-    };
+    // Multimodal input for the proxy
+    userContent = [
+      { type: "text", text: "Extract data from this resume document." },
+      {
+        type: "image_url",
+        image_url: {
+          url: `data:${input.mimeType};base64,${input.data}`
+        }
+      }
+    ];
   }
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema,
-      temperature: 0.2,
+  const response = await fetch(PROXY_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
     },
+    body: JSON.stringify({
+      model: DEFAULT_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent }
+      ],
+      temperature: 0.1,
+      response_format: { type: "json_object" }
+    })
   });
 
-  const text = response.text;
-  if (!text) throw new Error("Synthesis failed: The neural engine returned an empty sequence. Ensure the file is not corrupted and your API key is valid.");
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Neural Link Error: ${errorData.error?.message || response.statusText}`);
+  }
+
+  const result = await response.json();
+  const content = result.choices[0].message.content;
 
   try {
-    return JSON.parse(text);
+    return JSON.parse(content);
   } catch (err) {
-    console.error("Neural Decode Failure:", text);
-    throw new Error("Neural Decode Error: The model output could not be parsed as structured data.");
+    console.error("Neural Decode Failure:", content);
+    throw new Error("Neural Decode Error: The AI returned an invalid response format.");
   }
 };
 
@@ -136,43 +92,69 @@ export async function* chatWithPersonaStream(
   resumeData: ResumeData, 
   persona: AIPersona
 ) {
-  const ai = getAIClient();
+  const apiKey = getApiKey();
   
   const experienceHistory = resumeData.experience.map(e => `${e.role} at ${e.company}`).join(', ');
-  const systemInstruction = `You are the digital twin and autonomous assistant of ${resumeData.name}.
-  
-  Persona Specification:
-  - Identity: ${persona.name}
-  - Tone: ${persona.tone}
-  - Mission: ${persona.description}
-  - Expertise Areas: ${persona.expertise.join(', ')}
-  - Professional History: ${experienceHistory}
-  
-  Constraint: Speak only about the professional experience provided. If asked about personal matters, redirect to professional strengths. Always use Markdown. Keep responses punchy and high-value.`;
+  const systemInstruction = `You are the digital twin of ${resumeData.name}.
+  Identity: ${persona.name}. Tone: ${persona.tone}.
+  Mission: ${persona.description}. Expertise: ${persona.expertise.join(', ')}.
+  History: ${experienceHistory}.
+  Constraint: Speak only as this persona. Use Markdown. Keep it professional yet authentic.`;
 
-  const contents = history.map(h => ({
-    role: h.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: h.content }]
+  const messages = history.map(h => ({
+    role: h.role === 'assistant' ? 'assistant' : 'user',
+    content: h.content
   }));
   
-  contents.push({
-    role: 'user',
-    parts: [{ text: message }]
-  });
+  messages.push({ role: 'user', content: message });
 
-  const responseStream = await ai.models.generateContentStream({
-    model: 'gemini-3-flash-preview',
-    contents,
-    config: {
-      systemInstruction,
-      temperature: 0.7,
-      topP: 0.95,
+  const response = await fetch(PROXY_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
     },
+    body: JSON.stringify({
+      model: DEFAULT_MODEL,
+      messages: [
+        { role: "system", content: systemInstruction },
+        ...messages
+      ],
+      stream: true,
+      temperature: 0.7
+    })
   });
 
-  for await (const chunk of responseStream) {
-    if (chunk.text) {
-      yield chunk.text;
+  if (!response.ok) {
+    throw new Error(`Neural Stream Error: ${response.statusText}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) return;
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const cleaned = line.trim();
+      if (!cleaned || cleaned === 'data: [DONE]') continue;
+      if (cleaned.startsWith('data: ')) {
+        try {
+          const json = JSON.parse(cleaned.substring(6));
+          const delta = json.choices[0]?.delta?.content;
+          if (delta) yield delta;
+        } catch (e) {
+          // Skip invalid JSON chunks
+        }
+      }
     }
   }
 }

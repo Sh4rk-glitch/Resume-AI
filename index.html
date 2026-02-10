@@ -16,20 +16,17 @@
       window.process = window.process || { env: {} };
       window.process.env = window.process.env || {};
       
-      // HARDCODED API KEY (From your screenshot)
+      // HARDCODED API KEY (Hack Club Proxy Key)
       const HARDCODED_KEY = "sk-hc-v1-f1367f169e0144f1b5116b599e284228d844ff19490e4e6e9b449991c497554a"; 
       
       // Resolve API Key Priority: 
-      // 1. Hardcoded (if provided)
-      // 2. Vercel's NEXT_PUBLIC_API_KEY
-      // 3. Standard API_KEY
       const resolvedKey = HARDCODED_KEY || window.process.env.NEXT_PUBLIC_API_KEY || window.process.env.API_KEY;
       
       // Assign to all possible global locations
       window.process.env.API_KEY = resolvedKey;
       window.process.env.NEXT_PUBLIC_API_KEY = resolvedKey;
       
-      console.log("Neural Link Status: Configuration shim initialized.");
+      console.log("Neural Link Status: Hack Club Proxy configured.");
     })();
   </script>
 
