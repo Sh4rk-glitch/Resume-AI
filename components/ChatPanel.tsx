@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ResumeData, AIPersona, ChatMessage } from '../types';
 import { chatWithPersonaStream } from '../services/gemini';
 import { getChatHistory, saveChatMessage, clearChatHistory } from '../services/supabase';
@@ -20,6 +20,7 @@ const generateId = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
 
+// Main component for the interactive chat session with the synthesized AI persona
 const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showToast, showConfirm }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -109,6 +110,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     });
   };
 
+  // Logic to handle message dispatch and streaming AI response chunks
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isTyping || isWriting || !resumeId) return;

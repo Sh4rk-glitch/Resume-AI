@@ -6,76 +6,72 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token',
 }
 
+// Hack Club AI Proxy Configuration
+const HACK_CLUB_API_KEY = 'sk-hc-v1-f1367f169e0144f1b5116b599e284228d844ff19490e4e6e9b449991c497554a';
+const HACK_CLUB_ENDPOINT = 'https://ai.hackclub.com/proxy/v1/chat/completions';
+const MODEL_ID = 'qwen/qwen3-32b';
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // @ts-ignore: Deno is global in Supabase environment
-    const apiKey = Deno.env.get("API_KEY");
-    
-    if (!apiKey) {
-      console.error("API_KEY missing from environment");
-      return new Response(
-        JSON.stringify({ error: "API_KEY not found in Supabase Secrets. Please run: supabase secrets set API_KEY=your_key" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const { action, payload } = await req.json();
-    const PROXY_ENDPOINT = "https://ai.hackclub.com/proxy/v1/chat/completions";
 
     if (action === 'parse') {
-      const systemMsg = "You are a professional resume parser. Output ONLY valid JSON. No conversational filler.";
-      const userContent: any[] = [
-        { 
-          type: "text", 
-          text: `Act as an expert career strategist. Extract structured career data and synthesize a professional AI persona. 
-          Output MUST be strict JSON matching this structure:
-          {
-            "resume": { "name": "", "title": "", "summary": "", "skills": [], "experience": [], "education": [], "certifications": [] },
-            "persona": { "name": "", "tone": "", "strengths": [], "expertise": [], "description": "", "identifier": "", "exampleResponses": [] }
-          }`
-        }
-      ];
+      const systemPrompt = `Act as an expert career strategist. Extract structured career data from the provided resume material and synthesize a professional AI persona.
+      
+      IMPORTANT: Respond ONLY with valid JSON.
+      {
+        "resume": { "name": "string", "title": "string", "summary": "string", "skills": [], "experience": [], "education": [], "certifications": [] },
+        "persona": { "name": "string", "tone": "string", "strengths": [], "expertise": [], "description": "string", "identifier": "string", "exampleResponses": [] }
+      }`;
 
+      let userMessageContent: any;
       if (typeof payload === 'string') {
-        userContent.push({ type: "text", text: `RESUME DATA:\n${payload}` });
+        userMessageContent = payload;
       } else {
-        userContent.push({
-          type: "file",
-          file: {
-            filename: "resume.pdf",
-            file_data: `data:${payload.mimeType};base64,${payload.data}`
+        // PDF Input Logic for Hack Club Proxy
+        userMessageContent = [
+          { type: "text", text: "Please extract the career data from this resume file." },
+          {
+            type: "file",
+            file: {
+              filename: "resume.pdf",
+              file_data: `data:${payload.mimeType};base64,${payload.data}`
+            }
           }
-        });
+        ];
       }
 
-      const response = await fetch(PROXY_ENDPOINT, {
+      const response = await fetch(HACK_CLUB_ENDPOINT, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${HACK_CLUB_API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: MODEL_ID,
           messages: [
-            { role: "system", content: systemMsg },
-            { role: "user", content: userContent }
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessageContent }
           ],
-          response_format: { type: "json_object" }
+          plugins: [
+            { id: "file-parser", pdf: { engine: "native" } }
+          ],
+          temperature: 0.1
         })
       });
 
       const result = await response.json();
-      if (!response.ok) {
-        console.error("Proxy Parse Error:", result);
-        throw new Error(result.error?.message || "Hack Club Proxy Error during parsing");
-      }
+      const content = result.choices[0].message.content;
+      
+      // Clean potential markdown wrapper
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("AI returned invalid data format");
 
-      return new Response(result.choices[0].message.content, {
+      return new Response(jsonMatch[0], {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
 
@@ -84,42 +80,41 @@ serve(async (req) => {
       
       const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. 
       Background: ${persona.description}. 
-      Resume Context: ${JSON.stringify(resumeData)}. 
-      Speak as this person's autonomous digital twin. Use markdown for bolding and structure.`;
+      History: ${JSON.stringify(resumeData.experience.map(e => ({ role: e.role, company: e.company })))}.
+      Expertise: ${persona.expertise.join(', ')}.
+      Speak as this person's AI twin. Use markdown.`;
 
       const messages = [
-        { role: "system", content: systemInstruction },
-        ...history.map((h: any) => ({
-          role: h.role === 'assistant' ? 'assistant' : 'user',
-          content: h.content
-        })),
-        { role: "user", content: message }
+        { role: 'system', content: systemInstruction },
+        ...history.map((h: any) => ({ role: h.role, content: h.content })),
+        { role: 'user', content: message }
       ];
 
-      const response = await fetch(PROXY_ENDPOINT, {
+      const response = await fetch(HACK_CLUB_ENDPOINT, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${HACK_CLUB_API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: MODEL_ID,
           messages,
-          stream: true
+          stream: true,
+          temperature: 0.7
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Proxy Chat Error:", errorData);
-        throw new Error(errorData.error?.message || "Chat session link failed");
-      }
-
+      // Stream proxy logic
       const stream = new ReadableStream({
         async start(controller) {
           const reader = response.body?.getReader();
-          if (!reader) return;
+          if (!reader) {
+            controller.close();
+            return;
+          }
+
           const decoder = new TextDecoder();
+          const encoder = new TextEncoder();
           let buffer = "";
 
           try {
@@ -128,28 +123,21 @@ serve(async (req) => {
               if (done) break;
 
               buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
+              const lines = buffer.split('\n');
               buffer = lines.pop() || "";
 
               for (const line of lines) {
-                const cleanedLine = line.trim();
-                if (!cleanedLine || cleanedLine === "data: [DONE]") continue;
-                if (cleanedLine.startsWith("data: ")) {
+                const cleaned = line.trim();
+                if (!cleaned || cleaned === 'data: [DONE]') continue;
+                if (cleaned.startsWith('data: ')) {
                   try {
-                    const data = JSON.parse(cleanedLine.slice(6));
-                    const content = data.choices[0]?.delta?.content || "";
-                    if (content) {
-                      controller.enqueue(new TextEncoder().encode(content));
-                    }
-                  } catch (e) {
-                    // Ignore partial JSON chunks
-                  }
+                    const json = JSON.parse(cleaned.substring(6));
+                    const delta = json.choices[0]?.delta?.content;
+                    if (delta) controller.enqueue(encoder.encode(delta));
+                  } catch (e) { /* ignore parse errors in chunks */ }
                 }
               }
             }
-          } catch (err) {
-            console.error("Stream reader error:", err);
-            controller.error(err);
           } finally {
             controller.close();
           }
@@ -157,22 +145,13 @@ serve(async (req) => {
       });
 
       return new Response(stream, {
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive'
-        },
+        headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' },
       });
     }
 
-    return new Response(JSON.stringify({ error: "Unsupported action" }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ error: "Unsupported action" }), { status: 400, headers: corsHeaders });
 
   } catch (error: any) {
-    console.error("Edge Function Fatal Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
