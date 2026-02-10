@@ -5,6 +5,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Resume AI - Your Professional Persona</title>
+  
+  <script>
+    /**
+     * CORE CONFIGURATION SHIM
+     * This must run before any other script to ensure environment variables are available globally.
+     */
+    (function() {
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      
+      // HARDCODED API KEY FALLBACK
+      // If Vercel/Github is not passing the env var, you can paste your key here.
+      // Note: In production, it is safer to use Vercel's Environment Variables (API_KEY).
+      const HARDCODED_KEY = ""; // PASTE YOUR GEMINI API KEY HERE
+      
+      window.process.env.API_KEY = window.process.env.API_KEY || HARDCODED_KEY;
+    })();
+  </script>
+
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='25' fill='%234f46e5'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='900' font-size='45'%3ERAI%3C/text%3E%3C/svg%3E">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -96,6 +115,21 @@
     .target-cursor-active textarea {
       cursor: none !important;
     }
+
+    /* Custom Scrollbar for better aesthetics */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(99, 102, 241, 0.2);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 102, 241, 0.4);
+    }
   </style>
 <script type="importmap">
 {
@@ -113,15 +147,7 @@
 }
 </script>
 </head>
-<body class="bg-white text-gray-900">
-  <script>
-    // Global environment shim for API key access
-    // Uses a non-destructive check to ensure existing process variables are preserved
-    (function() {
-      window.process = window.process || {};
-      window.process.env = window.process.env || {};
-    })();
-  </script>
+<body class="bg-white text-gray-900 overflow-x-hidden">
   <div id="root"></div>
   <script type="module" src="./index.tsx"></script>
 </body>
