@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { GoogleGenAI } from "https://esm.sh/@google/genai"
+// FIX: Always use import {GoogleGenAI} from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
-// CORS headers for cross-origin requests from the frontend
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token',
@@ -14,116 +14,141 @@ serve(async (req) => {
   }
 
   try {
-    // Initialize using the mandatory named parameter and process.env.API_KEY.
-    // As per coding guidelines, assume process.env.API_KEY is pre-configured and accessible.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // FIX: Using process.env.API_KEY as strictly required by guidelines to obtain the API key.
+    // This also resolves the "Cannot find name 'Deno'" error in the execution context.
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      throw new Error("Missing API_KEY secret in Supabase environment.");
+    }
 
+    // FIX: Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const { action, payload } = await req.json()
 
     if (action === 'parse') {
-      const prompt = `Act as an expert career strategist. Extract structured career data and synthesize a professional AI persona. 
-      Output MUST be strict JSON matching this schema:
-      {
-        "resume": {
-          "name": "string",
-          "title": "string",
-          "summary": "string",
-          "skills": ["string"],
-          "experience": [{"role": "string", "company": "string", "duration": "string", "description": ["string"]}],
-          "education": [{"degree": "string", "institution": "string", "year": "string"}],
-          "certifications": ["string"]
-        },
-        "persona": {
-          "name": "string",
-          "tone": "string",
-          "strengths": ["string"],
-          "expertise": ["string"],
-          "description": "string",
-          "identifier": "string (lowercase-slug)",
-          "exampleResponses": ["string"]
-        }
-      }`;
+      const resumeContent = typeof payload === 'string' 
+        ? payload 
+        : `Resume Data (Base64 encoded ${payload.mimeType}): ${payload.data}`;
 
-      let parts = []
-      if (typeof payload === 'string') {
-        parts.push({ text: `DATA SOURCE: Raw Text\nCONTENT:\n${payload}` })
-      } else {
-        parts.push({
-          inlineData: {
-            data: payload.data,
-            mimeType: payload.mimeType || 'application/pdf'
-          }
-        })
-      }
-      parts.push({ text: prompt })
-
-      // Using gemini-3-pro-preview for complex extraction and synthesis tasks.
-      // Call generateContent directly with the model name and contents.
+      // FIX: Use gemini-3-flash-preview for text extraction and synthesis tasks.
       const response = await ai.models.generateContent({
-        model: "gemini-3-pro-preview",
-        contents: { parts },
+        model: 'gemini-3-flash-preview',
+        contents: `Act as an expert career strategist. Extract structured career data and synthesize a professional AI persona from the following resume content: ${resumeContent}`,
         config: {
           responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              resume: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  summary: { type: Type.STRING },
+                  skills: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  experience: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        role: { type: Type.STRING },
+                        company: { type: Type.STRING },
+                        duration: { type: Type.STRING },
+                        description: { type: Type.ARRAY, items: { type: Type.STRING } }
+                      },
+                      required: ["role", "company", "duration", "description"]
+                    }
+                  },
+                  education: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        degree: { type: Type.STRING },
+                        institution: { type: Type.STRING },
+                        year: { type: Type.STRING }
+                      },
+                      required: ["degree", "institution", "year"]
+                    }
+                  },
+                  certifications: { type: Type.ARRAY, items: { type: Type.STRING } }
+                },
+                required: ["name", "title", "summary", "skills", "experience", "education", "certifications"]
+              },
+              persona: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  tone: { type: Type.STRING },
+                  strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  expertise: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  description: { type: Type.STRING },
+                  identifier: { type: Type.STRING },
+                  exampleResponses: { type: Type.ARRAY, items: { type: Type.STRING } }
+                },
+                required: ["name", "tone", "strengths", "expertise", "description", "identifier", "exampleResponses"]
+              }
+            },
+            required: ["resume", "persona"]
+          }
         }
-      })
+      });
 
-      // Use the .text property (not a method) to extract string output from GenerateContentResponse.
+      // FIX: The response.text property directly returns the string output.
       return new Response(response.text, {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      });
 
     } else if (action === 'chat') {
-      const { message, history, resumeData, persona } = payload
+      const { message, history, resumeData, persona } = payload;
       
-      const contents = [
-        ...history.map((h: any) => ({
-          role: h.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: h.content }],
-        })),
-        { role: 'user', parts: [{ text: message }] }
-      ]
+      const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. Description: ${persona.description}. 
+      You are the digital twin of the person described in this resume: ${JSON.stringify(resumeData)}. 
+      Recruiters or employers are talking to you. Be professional, insightful, and stay in character. 
+      Use markdown for emphasis (**bold**).`;
 
-      // Using gemini-3-flash-preview for high-performance streaming chat responses.
-      const responseStream = await ai.models.generateContentStream({ 
-        model: "gemini-3-flash-preview",
-        contents: contents,
-        config: {
-          systemInstruction: `You are ${persona.name}. Tone: ${persona.tone}. Description: ${persona.description}. 
-          You are the digital twin of the person described in this resume: ${JSON.stringify(resumeData)}. 
-          Recruiters or employers are talking to you. Be professional, insightful, and stay in character. 
-          Use markdown for emphasis (**bold**).`,
-        }
-      })
-      
+      // FIX: Map history to the correct role format for Gemini API.
+      const contents = history.map((h: any) => ({
+        role: h.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: h.content }]
+      }));
+      contents.push({ role: 'user', parts: [{ text: message }] });
+
+      // FIX: Receive a streaming response from the model using generateContentStream.
+      const streamResponse = await ai.models.generateContentStream({
+        model: 'gemini-3-flash-preview',
+        contents,
+        config: { systemInstruction }
+      });
+
       const stream = new ReadableStream({
         async start(controller) {
-          for await (const chunk of responseStream) {
-            // chunk.text is a property that returns the string segment for streaming.
-            const text = chunk.text
+          for await (const chunk of streamResponse) {
+            // FIX: Correct extraction of text output from GenerateContentResponse using the .text property.
+            const text = chunk.text;
             if (text) {
-              controller.enqueue(new TextEncoder().encode(text))
+              controller.enqueue(new TextEncoder().encode(text));
             }
           }
-          controller.close()
+          controller.close();
         },
-      })
+      });
 
       return new Response(stream, {
         headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' },
-      })
+      });
     }
 
-    return new Response(JSON.stringify({ error: 'Unknown action' }), {
+    return new Response(JSON.stringify({ error: 'Unsupported action' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
 
   } catch (error: any) {
-    console.error("Neural Execution Failure:", error);
-    // Ensure CORS headers are included even in error responses.
+    console.error("Gemini Engine Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
 })
