@@ -4,19 +4,19 @@ import { ResumeData, AIPersona } from "../types";
 
 /**
  * Lazy-initializes the Gemini API client.
- * This prevents top-level crashes if process.env.API_KEY is not yet available.
+ * Ensures the API_KEY is present before making calls.
  */
 const getAIClient = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("API Key is missing. Please ensure the environment is configured correctly.");
+    throw new Error("Neural Link Offline: API_KEY is missing in environment variables. Please configure the project environment.");
   }
   return new GoogleGenAI({ apiKey });
 };
 
 /**
  * Parses raw resume text or file data into structured ResumeData and an AIPersona.
- * Uses gemini-3-pro-preview for high-fidelity extraction and synthesis.
+ * Uses gemini-3-pro-preview for deep analysis and persona synthesis.
  */
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
   const ai = getAIClient();
@@ -99,13 +99,13 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
   });
 
   const text = response.text;
-  if (!text) throw new Error("Synthesis failed: Empty response from AI.");
+  if (!text) throw new Error("Synthesis failed: The neural engine returned an empty sequence.");
 
   try {
     return JSON.parse(text);
   } catch (err) {
     console.error("Parse failure:", text);
-    throw new Error("Invalid data format received.");
+    throw new Error("Neural Decode Error: The model output could not be parsed as structured data.");
   }
 };
 
@@ -119,11 +119,14 @@ export async function* chatWithPersonaStream(
   persona: AIPersona
 ) {
   const ai = getAIClient();
+  
+  // Cleaned up system instruction with no syntax errors
+  const experienceHistory = resumeData.experience.map(e => `${e.role} at ${e.company}`).join(', ');
   const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. 
   Background: ${persona.description}. 
-  History: ${JSON.stringify(resumeData.experience.map(e => ({ role: e.role, company: e.company })))}.
+  History: ${experienceHistory}.
   Expertise: ${persona.expertise.join(', ')}.
-  Speak as this person's autonomous digital twin. Always use markdown.`;
+  Speak as this person's autonomous digital twin. Always use markdown for better readability.`;
 
   const contents = history.map(h => ({
     role: h.role === 'assistant' ? 'model' : 'user',
