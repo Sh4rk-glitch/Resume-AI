@@ -4,14 +4,19 @@ import { ResumeData, AIPersona } from "../types";
 
 /**
  * Parses raw resume text or file data into structured ResumeData and an AIPersona.
- * Uses Gemini 3 Flash for high-speed extraction and synthesis.
+ * Uses Gemini 3 Pro for advanced reasoning and high-fidelity extraction.
  */
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
-  // Always initialize right before use as per instructions
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("Neural link failed: API_KEY is missing from the environment. Ensure the key is injected as process.env.API_KEY.");
+  }
+
+  // Create client immediately before use per coding guidelines
+  const ai = new GoogleGenAI({ apiKey });
   
   try {
-    const model = "gemini-3-flash-preview";
+    const model = "gemini-3-pro-preview"; // Upgraded to Pro for complex synthesis
     
     const prompt = `Act as an expert career strategist. Extract structured career data from the provided resume material and synthesize a high-fidelity professional AI persona. 
     The persona should have a unique tone based on the user's experience and should be able to answer questions about their background autonomously.
@@ -32,7 +37,7 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
 
     const response = await ai.models.generateContent({
       model,
-      contents: { parts },
+      contents: [{ role: "user", parts }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -94,12 +99,12 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
     });
 
     const text = response.text;
-    if (!text) throw new Error("Neural engine returned an empty response.");
+    if (!text) throw new Error("Neural engine returned an empty sequence.");
     
     return JSON.parse(text);
   } catch (err: any) {
     console.error("Synthesis Fatal Error:", err);
-    throw new Error(err.message || "The synthesis engine encountered a sequencing error. Check your network or API key.");
+    throw new Error(err.message || "Synthesis interrupted. Verify network and configuration.");
   }
 };
 
@@ -112,7 +117,10 @@ export async function* chatWithPersonaStream(
   resumeData: ResumeData, 
   persona: AIPersona
 ) {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("Neural Stream Error: API_KEY missing.");
+  
+  const ai = new GoogleGenAI({ apiKey });
 
   try {
     const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. 
