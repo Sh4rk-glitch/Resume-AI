@@ -32,7 +32,6 @@ serve(async (req) => {
       if (typeof payload === 'string') {
         userMessageContent = payload;
       } else {
-        // PDF Input Logic for Hack Club Proxy
         userMessageContent = [
           { type: "text", text: "Please extract the career data from this resume file." },
           {
@@ -66,8 +65,6 @@ serve(async (req) => {
 
       const result = await response.json();
       const content = result.choices[0].message.content;
-      
-      // Clean potential markdown wrapper
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("AI returned invalid data format");
 
@@ -80,7 +77,7 @@ serve(async (req) => {
       
       const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. 
       Background: ${persona.description}. 
-      History: ${JSON.stringify(resumeData.experience.map(e => ({ role: e.role, company: e.company })))}.
+      History: ${JSON.stringify(resumeData.experience.map((e: any) => ({ role: e.role, company: e.company })))}.
       Expertise: ${persona.expertise.join(', ')}.
       Speak as this person's AI twin. Use markdown.`;
 
@@ -104,7 +101,6 @@ serve(async (req) => {
         })
       });
 
-      // Stream proxy logic
       const stream = new ReadableStream({
         async start(controller) {
           const reader = response.body?.getReader();
@@ -134,7 +130,7 @@ serve(async (req) => {
                     const json = JSON.parse(cleaned.substring(6));
                     const delta = json.choices[0]?.delta?.content;
                     if (delta) controller.enqueue(encoder.encode(delta));
-                  } catch (e) { /* ignore parse errors in chunks */ }
+                  } catch (e) { }
                 }
               }
             }
