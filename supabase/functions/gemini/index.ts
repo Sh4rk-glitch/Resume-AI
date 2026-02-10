@@ -1,39 +1,67 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-// FIX: Always use import {GoogleGenAI} from "@google/genai";
-import { GoogleGenAI, Type } from "@google/genai";
+// Import GoogleGenAI and Type from @google/genai via esm.sh for Deno compatibility
+import { GoogleGenAI, Type } from "https://esm.sh/@google/genai"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token',
 }
 
+// Fix: Use @ts-ignore to suppress "Cannot find name 'Deno'" as it is a global available at runtime in Supabase Edge Functions
+// @ts-ignore
+const API_KEY = Deno.env.get("API_KEY");
+
+// Guidelines: Always use process.env.API_KEY. We shim it for the Deno environment.
+// @ts-ignore
+globalThis.process = {
+  env: {
+    API_KEY: API_KEY
+  }
+};
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // FIX: Using process.env.API_KEY as strictly required by guidelines to obtain the API key.
-    // This also resolves the "Cannot find name 'Deno'" error in the execution context.
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      throw new Error("Missing API_KEY secret in Supabase environment.");
+    // Guidelines: Always use the process.env.API_KEY environment variable.
+    // @ts-ignore
+    const key = process.env.API_KEY;
+    if (!key) {
+      throw new Error("API_KEY not found in environment. Please configure it in Supabase secrets.");
     }
 
-    // FIX: Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const { action, payload } = await req.json()
+    const { action, payload } = await req.json();
+    // Initialize the Gemini client using the mandatory initialization pattern
+    const ai = new GoogleGenAI({ apiKey: key });
 
     if (action === 'parse') {
-      const resumeContent = typeof payload === 'string' 
-        ? payload 
-        : `Resume Data (Base64 encoded ${payload.mimeType}): ${payload.data}`;
+      const prompt = "Act as an expert career strategist. Extract structured career data from the following material and synthesize a professional AI persona. Return only valid JSON.";
+      
+      const contents: any[] = [];
+      if (typeof payload === 'string') {
+        contents.push({ role: 'user', parts: [{ text: `${prompt}\n\nResume Material:\n${payload}` }] });
+      } else {
+        contents.push({
+          role: 'user',
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: payload.mimeType,
+                data: payload.data
+              }
+            }
+          ]
+        });
+      }
 
-      // FIX: Use gemini-3-flash-preview for text extraction and synthesis tasks.
+      // Use gemini-3-flash-preview for efficient text extraction and JSON generation
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Act as an expert career strategist. Extract structured career data and synthesize a professional AI persona from the following resume content: ${resumeContent}`,
+        model: "gemini-3-flash-preview",
+        contents,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -94,7 +122,6 @@ serve(async (req) => {
         }
       });
 
-      // FIX: The response.text property directly returns the string output.
       return new Response(response.text, {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -102,36 +129,42 @@ serve(async (req) => {
     } else if (action === 'chat') {
       const { message, history, resumeData, persona } = payload;
       
-      const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. Description: ${persona.description}. 
-      You are the digital twin of the person described in this resume: ${JSON.stringify(resumeData)}. 
-      Recruiters or employers are talking to you. Be professional, insightful, and stay in character. 
-      Use markdown for emphasis (**bold**).`;
+      const systemInstruction = `You are ${persona.name}. 
+      Tone: ${persona.tone}. 
+      Expertise: ${persona.expertise.join(', ')}.
+      Background: ${persona.description}.
+      Resume Data: ${JSON.stringify(resumeData)}.
+      You are the digital twin of this professional. Speak directly to recruiters as an autonomous agent. Use Markdown.`;
 
-      // FIX: Map history to the correct role format for Gemini API.
-      const contents = history.map((h: any) => ({
-        role: h.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: h.content }]
-      }));
-      contents.push({ role: 'user', parts: [{ text: message }] });
+      // Convert conversation history to Gemini-compatible format
+      const geminiContents = [
+        ...history.map((h: any) => ({
+          role: h.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: h.content }]
+        })),
+        { role: 'user', parts: [{ text: message }] }
+      ];
 
-      // FIX: Receive a streaming response from the model using generateContentStream.
+      // Use gemini-3-flash-preview for low-latency conversational streaming
       const streamResponse = await ai.models.generateContentStream({
         model: 'gemini-3-flash-preview',
-        contents,
-        config: { systemInstruction }
+        contents: geminiContents,
+        config: {
+          systemInstruction
+        }
       });
 
       const stream = new ReadableStream({
         async start(controller) {
           for await (const chunk of streamResponse) {
-            // FIX: Correct extraction of text output from GenerateContentResponse using the .text property.
+            // Extract generated text from the chunk using the response.text property
             const text = chunk.text;
             if (text) {
               controller.enqueue(new TextEncoder().encode(text));
             }
           }
           controller.close();
-        },
+        }
       });
 
       return new Response(stream, {
@@ -139,16 +172,16 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: 'Unsupported action' }), {
+    return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error: any) {
-    console.error("Gemini Engine Error:", error);
+    console.error("Supabase Edge Function Neural Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-})
+});
