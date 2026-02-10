@@ -2,14 +2,14 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
-// Initialize the Gemini API client using the environment variable
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-
 /**
  * Parses raw resume text or file data into structured ResumeData and an AIPersona.
  * Uses Gemini 3 Flash for high-speed extraction and synthesis.
  */
 export const parseResume = async (input: string | { data: string; mimeType: string }): Promise<{ resume: ResumeData; persona: AIPersona }> => {
+  // Always initialize right before use as per instructions
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  
   try {
     const model = "gemini-3-flash-preview";
     
@@ -32,7 +32,7 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
 
     const response = await ai.models.generateContent({
       model,
-      contents: [{ role: "user", parts }],
+      contents: { parts },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -112,6 +112,8 @@ export async function* chatWithPersonaStream(
   resumeData: ResumeData, 
   persona: AIPersona
 ) {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
   try {
     const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. 
     Background: ${persona.description}. 
@@ -120,13 +122,11 @@ export async function* chatWithPersonaStream(
     Speak as this person's autonomous digital twin. Be professional but stay true to the tone provided. 
     Always use markdown for emphasis (bolding key terms) and clear structure.`;
 
-    // Map roles to Gemini standards
     const contents = history.map(h => ({
       role: h.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: h.content }]
     }));
 
-    // Add current message
     contents.push({ role: 'user', parts: [{ text: message }] });
 
     const responseStream = await ai.models.generateContentStream({

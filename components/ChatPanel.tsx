@@ -1,8 +1,8 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ResumeData, AIPersona, ChatMessage } from '../types';
 import { chatWithPersonaStream } from '../services/gemini';
-import { getChatHistory, saveChatMessage, updateMessageFeedback, clearChatHistory } from '../services/supabase';
+import { getChatHistory, saveChatMessage, clearChatHistory } from '../services/supabase';
 
 interface ChatPanelProps {
   resume: ResumeData;
@@ -12,11 +12,18 @@ interface ChatPanelProps {
   showConfirm: (title: string, msg: string, onConfirm: () => void) => void;
 }
 
+// Fallback for crypto.randomUUID in non-secure contexts
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
+
 const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showToast, showConfirm }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -26,32 +33,34 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
   useEffect(() => {
     const loadHistory = async () => {
       if (!resumeId) return;
-      setIsSyncing(true);
-      const history = await getChatHistory(resumeId);
-      if (history.length > 0) {
-        setMessages(history);
-      } else {
-        const welcomeMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: `Persona initialized. I am **${persona.name}**. I've synthesized your background in **${persona.expertise.slice(0, 2).join(' and ')}**. How can I assist with your career representation today?`,
-          timestamp: new Date()
-        };
-        setMessages([welcomeMessage]);
-        saveChatMessage(resumeId, welcomeMessage);
+      try {
+        const history = await getChatHistory(resumeId);
+        if (history.length > 0) {
+          setMessages(history);
+        } else {
+          const welcomeMessage: ChatMessage = {
+            id: generateId(),
+            role: 'assistant',
+            content: `Persona initialized. I am **${persona.name}**. I've synthesized your background in **${persona.expertise.slice(0, 2).join(' and ')}**. How can I assist with your career representation today?`,
+            timestamp: new Date()
+          };
+          setMessages([welcomeMessage]);
+          saveChatMessage(resumeId, welcomeMessage);
+        }
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
       }
-      setIsSyncing(false);
     };
 
     loadHistory();
-  }, [resumeId, persona.name]);
+  }, [resumeId, persona.name, persona.expertise]);
 
   useEffect(() => {
     let interval: number;
     if (isWriting || typewriterQueue.current.length > 0) {
       interval = window.setInterval(() => {
         if (typewriterQueue.current.length > 0 && typewriterTargetId.current) {
-          const count = typewriterQueue.current.length > 50 ? 3 : 1; 
+          const count = typewriterQueue.current.length > 50 ? 5 : 2; 
           const nextChars = typewriterQueue.current.slice(0, count);
           typewriterQueue.current = typewriterQueue.current.slice(count);
           
@@ -68,7 +77,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
           }
           typewriterTargetId.current = null;
         }
-      }, 15);
+      }, 20);
     }
     return () => clearInterval(interval);
   }, [isWriting, isTyping, resumeId, messages]);
@@ -83,7 +92,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     if (!resumeId) return;
     showConfirm("Reset Brain Link", "Clear conversational memory?", async () => {
       await clearChatHistory(resumeId);
-      const welcome = { id: crypto.randomUUID(), role: 'assistant', content: `Neural bridge reset.`, timestamp: new Date() } as ChatMessage;
+      const welcome = { id: generateId(), role: 'assistant', content: `Neural bridge reset.`, timestamp: new Date() } as ChatMessage;
       setMessages([welcome]);
       saveChatMessage(resumeId, welcome);
       showToast("Neural bridge reset successful.");
@@ -104,14 +113,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     e?.preventDefault();
     if (!input.trim() || isTyping || isWriting || !resumeId) return;
 
-    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: input, timestamp: new Date() };
+    const userMessage: ChatMessage = { id: generateId(), role: 'user', content: input, timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
     setIsWriting(true); 
     await saveChatMessage(resumeId, userMessage);
 
-    const assistantMsgId = crypto.randomUUID();
+    const assistantMsgId = generateId();
     typewriterTargetId.current = assistantMsgId;
     typewriterQueue.current = '';
     setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: '', timestamp: new Date() }]);
@@ -119,18 +128,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     try {
       const history = messages.filter(m => m.content && m.content.trim() !== '').map(m => ({ role: m.role, content: m.content }));
       const stream = chatWithPersonaStream(input, history, resume, persona);
+      
+      let hasReceivedData = false;
       for await (const chunk of stream) {
+        hasReceivedData = true;
         setIsTyping(false);
         typewriterQueue.current += chunk;
       }
-    } catch (err: any) {
-      console.error("Chat Error:", err);
-      let errorMessage = `Connection Error: ${err.message || "Interrupted"}`;
       
-      if (err.message?.includes("API key")) {
-        errorMessage = "API Configuration Error. Ensure the project is redeployed with the correct API_KEY on Vercel.";
+      if (!hasReceivedData) {
+        throw new Error("The AI provided an empty stream response.");
       }
-      
+    } catch (err: any) {
+      console.error("Chat Execution Error:", err);
+      let errorMessage = `Neural Link Error: ${err.message || "Unknown error occurred"}`;
       setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: errorMessage } : m));
       showToast("Neural link failed.", "error");
     } finally {
@@ -161,6 +172,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
               <div className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">
                 {msg.content ? renderContent(msg.content) : (isTyping && idx === messages.length - 1) ? "..." : null}
               </div>
+              <div className={`text-[9px] mt-2 opacity-40 font-bold uppercase tracking-widest ${msg.role === 'user' ? 'text-right' : ''}`}>
+                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
           </div>
         ))}
@@ -169,11 +183,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
       <div className="p-6 md:p-8 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
         <form onSubmit={handleSend} className="relative">
           <input
-            type="text" className="w-full pl-6 pr-16 py-5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none dark:text-white transition-all shadow-inner"
+            type="text" className="w-full pl-6 pr-16 py-5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none dark:text-white transition-all shadow-inner focus:ring-2 focus:ring-indigo-500/20"
             placeholder="Interrogate your persona..." value={input} onChange={(e) => setInput(e.target.value)} disabled={isTyping || isWriting}
           />
-          <button type="submit" disabled={!input.trim() || isTyping || isWriting} className="absolute right-3 top-3 p-3 bg-indigo-600 text-white rounded-xl shadow-lg active:scale-95 disabled:opacity-30">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+          <button type="submit" disabled={!input.trim() || isTyping || isWriting} className="absolute right-3 top-3 p-3 bg-indigo-600 text-white rounded-xl shadow-lg active:scale-95 disabled:opacity-30 group">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+            </svg>
           </button>
         </form>
       </div>
