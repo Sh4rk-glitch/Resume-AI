@@ -9,18 +9,27 @@
   <script>
     /**
      * CORE CONFIGURATION SHIM
-     * This must run before any other script to ensure environment variables are available globally.
+     * Ensures environment variables are available globally before modules load.
      */
     (function() {
-      window.process = window.process || {};
+      // Create global process shim if it doesn't exist
+      window.process = window.process || { env: {} };
       window.process.env = window.process.env || {};
       
-      // HARDCODED API KEY FALLBACK
-      // If Vercel/Github is not passing the env var, you can paste your key here.
-      // Note: In production, it is safer to use Vercel's Environment Variables (API_KEY).
-      const HARDCODED_KEY = ""; // PASTE YOUR GEMINI API KEY HERE
+      // HARDCODED API KEY (From your screenshot)
+      const HARDCODED_KEY = "sk-hc-v1-f1367f169e0144f1b5116b599e284228d844ff19490e4e6e9b449991c497554a"; 
       
-      window.process.env.API_KEY = window.process.env.API_KEY || HARDCODED_KEY;
+      // Resolve API Key Priority: 
+      // 1. Hardcoded (if provided)
+      // 2. Vercel's NEXT_PUBLIC_API_KEY
+      // 3. Standard API_KEY
+      const resolvedKey = HARDCODED_KEY || window.process.env.NEXT_PUBLIC_API_KEY || window.process.env.API_KEY;
+      
+      // Assign to all possible global locations
+      window.process.env.API_KEY = resolvedKey;
+      window.process.env.NEXT_PUBLIC_API_KEY = resolvedKey;
+      
+      console.log("Neural Link Status: Configuration shim initialized.");
     })();
   </script>
 
@@ -116,7 +125,6 @@
       cursor: none !important;
     }
 
-    /* Custom Scrollbar for better aesthetics */
     ::-webkit-scrollbar {
       width: 6px;
     }

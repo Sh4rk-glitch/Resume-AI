@@ -3,14 +3,23 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, AIPersona } from "../types";
 
 /**
- * Lazy-initializes the Gemini API client.
- * Ensures the API_KEY is present before making calls.
+ * Lazy-initializes the Gemini API client with a multi-layered key resolution strategy.
  */
 const getAIClient = () => {
-  const apiKey = process.env.API_KEY;
+  // 1. Check window.process.env (set by our HTML shim)
+  // 2. Check process.env (Node/Bundler injection)
+  // 3. Check NEXT_PUBLIC specifically for Vercel
+  const apiKey = 
+    (window as any).process?.env?.API_KEY || 
+    (window as any).process?.env?.NEXT_PUBLIC_API_KEY || 
+    (process.env as any)?.API_KEY || 
+    (process.env as any)?.NEXT_PUBLIC_API_KEY;
+  
   if (!apiKey || apiKey.trim() === "") {
-    throw new Error("Neural Link Offline: API_KEY is not configured. Please add your Gemini API Key in Vercel or the index.html shim.");
+    console.error("Neural Link Failure: API Key Resolution returned null or empty.");
+    throw new Error("Neural Link Offline: API_KEY is missing. Ensure the Vercel env var 'NEXT_PUBLIC_API_KEY' is set or use the hardcoded fallback in index.html.");
   }
+  
   return new GoogleGenAI({ apiKey });
 };
 
@@ -84,7 +93,6 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
   if (typeof input === 'string') {
     contents = { parts: [{ text: input }, { text: prompt }] };
   } else {
-    // PDF or Image input for multimodal scanning
     contents = {
       parts: [
         { 
@@ -109,13 +117,13 @@ export const parseResume = async (input: string | { data: string; mimeType: stri
   });
 
   const text = response.text;
-  if (!text) throw new Error("Synthesis failed: The neural engine returned an empty sequence. Check your API key or document quality.");
+  if (!text) throw new Error("Synthesis failed: The neural engine returned an empty sequence. Ensure the file is not corrupted and your API key is valid.");
 
   try {
     return JSON.parse(text);
   } catch (err) {
     console.error("Neural Decode Failure:", text);
-    throw new Error("Neural Decode Error: Could not map the model output to structured data.");
+    throw new Error("Neural Decode Error: The model output could not be parsed as structured data.");
   }
 };
 

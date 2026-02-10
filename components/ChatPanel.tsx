@@ -12,7 +12,6 @@ interface ChatPanelProps {
   showConfirm: (title: string, msg: string, onConfirm: () => void) => void;
 }
 
-// Fallback for crypto.randomUUID in non-secure contexts
 const generateId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -20,7 +19,6 @@ const generateId = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
 
-// Main component for the interactive chat session with the synthesized AI persona
 const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showToast, showConfirm }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -110,7 +108,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
     });
   };
 
-  // Logic to handle message dispatch and streaming AI response chunks
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isTyping || isWriting || !resumeId) return;
@@ -142,13 +139,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ resume, persona, resumeId, showTo
       }
       
       if (!hasReceivedData) {
-        throw new Error("The AI provided an empty response.");
+        throw new Error("The AI returned an empty response. Check your API credentials.");
       }
     } catch (err: any) {
       console.error("Chat Execution Error:", err);
-      const errorMessage = `Neural Link Error: ${err.message || "Connection interrupted"}`;
+      const errorMessage = `Neural Link Error: ${err.message || "Connection interrupted. Check your API configuration in Vercel settings."}`;
       setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: errorMessage } : m));
-      showToast("Neural link failed.", "error");
+      showToast("Neural link failed. See message for details.", "error");
     } finally {
       setIsTyping(false);
     }
