@@ -15,7 +15,7 @@ Key Features
 Traditional résumés are static. Resume AI makes them dynamic. Instead of reading a document, people can talk to your experience getting instant answers, insights, and context that a resume alone can’t provide.
 
 
-###TRY THIS EXAMPLE RESUME!
+### TRY THIS EXAMPLE RESUME!
 
 ALEXANDER REED
 Atlanta, GA • alex.reed@example.com • (470) 555‑9821
