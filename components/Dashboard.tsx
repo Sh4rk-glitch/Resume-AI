@@ -34,7 +34,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [showHistory, setShowHistory] = useState(false);
   
   const host = window.location.host;
-  const vanityDomain = "resume-ai.app";
+  const vanityDomain = "rai-builder.vercel.app";
   const publicPath = `/${persona.identifier}`;
   
   // The actual URL for functional use (copying/opening)
