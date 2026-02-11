@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ResumeData, AIPersona } from '../types';
 import ChatPanel from './ChatPanel';
@@ -107,17 +106,17 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden">
         <div className="lg:col-span-4 space-y-6 overflow-y-auto custom-scrollbar pr-1">
-          {/* Quick Action: New Persona */}
+          {/* Quick Action: New Persona (FIX: Clearly accessible button) */}
           <button 
             onClick={onNewResume}
-            className="w-full relative group cursor-target overflow-hidden rounded-[2.5rem] transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full relative group cursor-target overflow-hidden rounded-[2.5rem] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-indigo-500/10"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 transition-transform group-hover:scale-105"></div>
-            <div className="absolute inset-0 opacity-20 grid-bg"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 transition-transform group-hover:scale-110"></div>
+            <div className="absolute inset-0 opacity-20 grid-bg animate-pulse"></div>
             <div className="relative p-8 flex items-center justify-between">
               <div className="text-left">
                 <h3 className="text-white font-black text-lg tracking-tight mb-1">Add New Persona</h3>
-                <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-80">Synthesize your history</p>
+                <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-80">Synthesize another history</p>
               </div>
               <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white text-2xl font-black">
                 +
