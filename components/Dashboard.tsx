@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ResumeData, AIPersona } from '../types';
 import ChatPanel from './ChatPanel';
@@ -34,7 +35,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [showHistory, setShowHistory] = useState(false);
   
   const host = window.location.host;
-  const vanityDomain = "rai-builder.vercel.app";
+  const vanityDomain = "resume-ai.app";
   const publicPath = `/${persona.identifier}`;
   
   // The actual URL for functional use (copying/opening)
@@ -106,6 +107,24 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden">
         <div className="lg:col-span-4 space-y-6 overflow-y-auto custom-scrollbar pr-1">
+          {/* Quick Action: New Persona */}
+          <button 
+            onClick={onNewResume}
+            className="w-full relative group cursor-target overflow-hidden rounded-[2.5rem] transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 transition-transform group-hover:scale-105"></div>
+            <div className="absolute inset-0 opacity-20 grid-bg"></div>
+            <div className="relative p-8 flex items-center justify-between">
+              <div className="text-left">
+                <h3 className="text-white font-black text-lg tracking-tight mb-1">Add New Persona</h3>
+                <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-80">Synthesize your history</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white text-2xl font-black">
+                +
+              </div>
+            </div>
+          </button>
+
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-sm border border-gray-100 dark:border-slate-800 cursor-target relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-bl-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="flex items-center space-x-6 mb-10 relative z-10">
@@ -179,12 +198,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <div className="text-[9px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">{new Date(item.created_at).toLocaleDateString()}</div>
                   </button>
                 ))}
-                <button 
-                  onClick={onNewResume}
-                  className="w-full mt-4 p-4 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400 border border-dashed border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all cursor-target"
-                >
-                  + Evolve New Persona
-                </button>
               </div>
             )}
           </div>

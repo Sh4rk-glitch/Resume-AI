@@ -122,6 +122,19 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, [fetchUserHistory]);
 
+  // Safety check: if we are in Dashboard state but have no resume, redirect to Upload
+  useEffect(() => {
+    if (appState === AppState.DASHBOARD && !currentResume && !isInitializing) {
+      if (savedResumes.length > 0) {
+        setCurrentResume(savedResumes[0].resume_data);
+        setCurrentPersona(savedResumes[0].persona_data);
+        setCurrentResumeId(savedResumes[0].id);
+      } else {
+        setAppState(AppState.UPLOADING);
+      }
+    }
+  }, [appState, currentResume, isInitializing, savedResumes]);
+
   const handleStart = () => {
     if (session) {
       setAppState(savedResumes.length > 0 ? AppState.DASHBOARD : AppState.UPLOADING);
@@ -130,7 +143,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSignIn = () => setAppState(session ? AppState.DASHBOARD : AppState.AUTH);
+  const handleSignIn = () => {
+    if (session) {
+      setAppState(savedResumes.length > 0 ? AppState.DASHBOARD : AppState.UPLOADING);
+    } else {
+      setAppState(AppState.AUTH);
+    }
+  };
+
   const toggleDarkMode = () => setDarkMode(!darkMode);
 
   const handleDataParsed = useCallback(async (data: { resume: ResumeData; persona: AIPersona }) => {
