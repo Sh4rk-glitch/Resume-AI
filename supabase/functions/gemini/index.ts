@@ -6,149 +6,192 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token',
 }
 
-// Hack Club AI Proxy Configuration
-const HACK_CLUB_API_KEY = 'sk-hc-v1-f1367f169e0144f1b5116b599e284228d844ff19490e4e6e9b449991c497554a';
-const HACK_CLUB_ENDPOINT = 'https://ai.hackclub.com/proxy/v1/chat/completions';
-const MODEL_ID = 'qwen/qwen3-32b';
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { action, payload } = await req.json();
+    const GROQ_API_KEY = (Deno as any).env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) throw new Error("Neural Link Offline: GROQ_API_KEY missing from Edge Secrets.");
 
-    if (action === 'parse') {
-      const systemPrompt = `Act as an expert career strategist. Extract structured career data from the provided resume material and synthesize a professional AI persona.
-      
-      IMPORTANT: Respond ONLY with valid JSON.
-      {
-        "resume": { "name": "string", "title": "string", "summary": "string", "skills": [], "experience": [], "education": [], "certifications": [] },
-        "persona": { "name": "string", "tone": "string", "strengths": [], "expertise": [], "description": "string", "identifier": "string", "exampleResponses": [] }
-      }`;
+    console.log('API_KEY exists');
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.url);
 
-      let userMessageContent: any;
-      if (typeof payload === 'string') {
-        userMessageContent = payload;
-      } else {
-        userMessageContent = [
-          { type: "text", text: "Please extract the career data from this resume file." },
-          {
-            type: "file",
-            file: {
-              filename: "resume.pdf",
-              file_data: `data:${payload.mimeType};base64,${payload.data}`
-            }
-          }
-        ];
-      }
-
-      const response = await fetch(HACK_CLUB_ENDPOINT, {
-        method: 'POST',
+    // Test endpoint to verify API key works
+    if (req.url.includes('/test')) {
+      console.log('Testing API key...');
+      const testResponse = await fetch('https://api.groq.com/openai/v1/models', {
         headers: {
-          'Authorization': `Bearer ${HACK_CLUB_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: MODEL_ID,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMessageContent }
-          ],
-          plugins: [
-            { id: "file-parser", pdf: { engine: "native" } }
-          ],
-          temperature: 0.1
-        })
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+        }
       });
-
-      const result = await response.json();
-      const content = result.choices[0].message.content;
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("AI returned invalid data format");
-
-      return new Response(jsonMatch[0], {
+      const testData = await testResponse.text();
+      return new Response(JSON.stringify({
+        status: testResponse.status,
+        data: testData.substring(0, 200)
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
 
-    } else if (action === 'chat') {
-      const { message, history, resumeData, persona } = payload;
+    const { action, payload } = await req.json();
+
+    console.log('Action:', action);
+    console.log('Payload type:', typeof payload);
+
+    if (action === 'parse') {
+      const resumeContent = typeof payload === 'string' ? payload : "Material provided via multi-modal part.";
       
-      const systemInstruction = `You are ${persona.name}. Tone: ${persona.tone}. 
-      Background: ${persona.description}. 
-      History: ${JSON.stringify(resumeData.experience.map((e: any) => ({ role: e.role, company: e.company })))}.
-      Expertise: ${persona.expertise.join(', ')}.
-      Speak as this person's AI twin. Use markdown.`;
-
-      const messages = [
-        { role: 'system', content: systemInstruction },
-        ...history.map((h: any) => ({ role: h.role, content: h.content })),
-        { role: 'user', content: message }
-      ];
-
-      const response = await fetch(HACK_CLUB_ENDPOINT, {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${HACK_CLUB_API_KEY}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: MODEL_ID,
-          messages,
-          stream: true,
+          model: 'llama-3.1-8b-instant',
+          messages: [{
+            role: 'user',
+            content: `Analyze this resume and extract the following JSON structure:
+{
+  "resume": {
+    "name": "string",
+    "title": "string", 
+    "summary": "string",
+    "skills": ["string"],
+    "experience": [{"role": "string", "company": "string", "duration": "string", "description": ["string"]}],
+    "education": [{"degree": "string", "institution": "string", "year": "string"}],
+    "certifications": ["string"]
+  },
+  "persona": {
+    "name": "string",
+    "tone": "string",
+    "strengths": ["string"],
+    "expertise": ["string"],
+    "description": "string",
+    "identifier": "string",
+    "exampleResponses": ["string"]
+  }
+}
+
+Resume Content:
+${resumeContent}`
+          }],
           temperature: 0.7
         })
       });
 
-      const stream = new ReadableStream({
-        async start(controller) {
-          const reader = response.body?.getReader();
-          if (!reader) {
-            controller.close();
-            return;
-          }
+      // Read and parse the response
+      const responseText = await response.text();
+      console.log('Parse response status:', response.status);
+      console.log('Parse response length:', responseText.length);
 
-          const decoder = new TextDecoder();
-          const encoder = new TextEncoder();
-          let buffer = "";
+      if (!response.ok) {
+        console.error('Parse error response:', responseText);
+        throw new Error(`Groq API Error: ${responseText}`);
+      }
 
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
+      const data = JSON.parse(responseText);
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) throw new Error("Empty response from Groq API");
 
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
-              buffer = lines.pop() || "";
+      return new Response(content, {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
 
-              for (const line of lines) {
-                const cleaned = line.trim();
-                if (!cleaned || cleaned === 'data: [DONE]') continue;
-                if (cleaned.startsWith('data: ')) {
-                  try {
-                    const json = JSON.parse(cleaned.substring(6));
-                    const delta = json.choices[0]?.delta?.content;
-                    if (delta) controller.enqueue(encoder.encode(delta));
-                  } catch (e) { }
-                }
-              }
-            }
-          } finally {
-            controller.close();
-          }
+    } else if (action === 'chat') {
+      const { message, history, persona, resumeData } = payload;
+      
+      if (!message) {
+        throw new Error("Message is required");
+      }
+
+      const systemPrompt = `You are ${persona.name}. Tone: ${persona.tone}. 
+Persona Bio: ${persona.description}. 
+Key Expertise: ${persona.expertise.join(', ')}.
+Background Details: ${JSON.stringify(resumeData)}.
+Speak as this person's AI representative. Use markdown for better readability.`;
+
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        ...history.map((h: any) => ({
+          role: h.role,
+          content: h.content
+        })),
+        { role: 'user', content: message }
+      ];
+
+      console.log('Sending request to Groq');
+      console.log('API_KEY exists:', !!GROQ_API_KEY);
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages,
+          temperature: 0.7
+        })
+      });
+
+      console.log('Response status:', response.status);
+
+      // Read the response ONCE
+      const text = await response.text();
+      console.log('Received response text length:', text.length);
+      console.log('First 500 chars:', text.substring(0, 500));
+
+      if (!response.ok) {
+        console.error('HTTP Error:', response.status, text);
+        throw new Error(`Groq API Error - HTTP ${response.status}: ${text}`);
+      }
+
+      console.log('Response OK, processing response');
+      
+      try {
+        // Parse the response
+        const data = JSON.parse(text);
+        console.log('Parsed data:', JSON.stringify(data).substring(0, 200));
+        
+        const aiMessage = data.choices?.[0]?.message?.content || '';
+        if (!aiMessage) {
+          console.error('No content found in choices:', data.choices);
+          throw new Error("No content in AI response");
         }
-      });
 
-      return new Response(stream, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' },
-      });
+        console.log('AI Message length:', aiMessage.length);
+
+        // Convert to SSE format for streaming
+        const sseResponse = `data: ${JSON.stringify({
+          choices: [{
+            delta: { content: aiMessage }
+          }]
+        })}\ndata: [DONE]\n`;
+        
+        return new Response(sseResponse, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+        });
+      } catch (parseError: any) {
+        console.error('Parse error:', parseError.message);
+        throw parseError;
+      }
     }
 
     return new Response(JSON.stringify({ error: "Unsupported action" }), { status: 400, headers: corsHeaders });
 
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Error in function:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Internal server error',
+      details: error.stack
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

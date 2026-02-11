@@ -9,24 +9,20 @@
   <script>
     /**
      * CORE CONFIGURATION SHIM
-     * Ensures environment variables are available globally before modules load.
+     * This must run before ANY other scripts or modules.
      */
     (function() {
-      // Create global process shim if it doesn't exist
-      window.process = window.process || { env: {} };
+      // Establish a global process object to mimic Node.js environment
+      window.process = window.process || {};
       window.process.env = window.process.env || {};
       
-      // HARDCODED API KEY (Hack Club Proxy Key)
-      const HARDCODED_KEY = "sk-hc-v1-f1367f169e0144f1b5116b599e284228d844ff19490e4e6e9b449991c497554a"; 
+      // Attempt to capture the API key from various common injection points
+      const key = window.process.env.API_KEY || 
+                  window.process.env.NEXT_PUBLIC_API_KEY || 
+                  ''; // Default to empty string to prevent ReferenceErrors
       
-      // Resolve API Key Priority: 
-      const resolvedKey = HARDCODED_KEY || window.process.env.NEXT_PUBLIC_API_KEY || window.process.env.API_KEY;
-      
-      // Assign to all possible global locations
-      window.process.env.API_KEY = resolvedKey;
-      window.process.env.NEXT_PUBLIC_API_KEY = resolvedKey;
-      
-      console.log("Neural Link Status: Hack Club Proxy configured.");
+      window.process.env.API_KEY = key;
+      console.log("Neural Link Status: Hack Club AI Proxy Active.");
     })();
   </script>
 

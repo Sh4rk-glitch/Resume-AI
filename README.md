@@ -7,7 +7,7 @@ Key Features
 - Upload your résumé (PDF, DOCX, or text)
 - Automatic parsing of skills, experience, education, and achievements
 - AI persona generation that reflects your tone, expertise, and career focus
-- Public shareable link: r.ai/[identifier]
+- Public shareable link: rai-builder.vercel.app/[identifier]
 - Interactive Q&A about your background
 - Interview prep, summaries, and tailored responses based on your résumé
 
