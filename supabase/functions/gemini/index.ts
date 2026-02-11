@@ -12,8 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const GROQ_API_KEY = (Deno as any).env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) throw new Error("Neural Link Offline: GROQ_API_KEY missing from Edge Secrets.");
+    const MISTRAL_API_KEY = (Deno as any).env.get("MISTRAL_API_KEY");
+    if (!MISTRAL_API_KEY) throw new Error("Neural Link Offline: MISTRAL_API_KEY missing from Edge Secrets.");
 
     console.log('API_KEY exists');
     console.log('Request method:', req.method);
@@ -22,9 +22,9 @@ serve(async (req) => {
     // Test endpoint to verify API key works
     if (req.url.includes('/test')) {
       console.log('Testing API key...');
-      const testResponse = await fetch('https://api.groq.com/openai/v1/models', {
+      const testResponse = await fetch('https://api.mistral.ai/v1/models', {
         headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Authorization': `Bearer ${MISTRAL_API_KEY}`,
         }
       });
       const testData = await testResponse.text();
@@ -44,14 +44,14 @@ serve(async (req) => {
     if (action === 'parse') {
       const resumeContent = typeof payload === 'string' ? payload : "Material provided via multi-modal part.";
       
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Authorization': `Bearer ${MISTRAL_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: 'mistral-small',
           messages: [{
             role: 'user',
             content: `Analyze this resume and extract the following JSON structure:
@@ -90,14 +90,29 @@ ${resumeContent}`
 
       if (!response.ok) {
         console.error('Parse error response:', responseText);
-        throw new Error(`Groq API Error: ${responseText}`);
+        throw new Error(`Mistral API Error: ${responseText}`);
       }
 
       const data = JSON.parse(responseText);
       const content = data.choices?.[0]?.message?.content;
-      if (!content) throw new Error("Empty response from Groq API");
+      if (!content) throw new Error("Empty response from Mistral API");
 
-      return new Response(content, {
+      // Extract JSON from the response (might be in markdown code blocks)
+      let jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
+      let jsonStr = jsonMatch ? jsonMatch[1] : content;
+      
+      // Try to find JSON object in the content if no code block
+      if (!jsonMatch) {
+        const jsonStart = content.indexOf('{');
+        const jsonEnd = content.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          jsonStr = content.substring(jsonStart, jsonEnd + 1);
+        }
+      }
+
+      const parsedData = JSON.parse(jsonStr);
+      
+      return new Response(JSON.stringify(parsedData), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
 
@@ -123,17 +138,17 @@ Speak as this person's AI representative. Use markdown for better readability.`;
         { role: 'user', content: message }
       ];
 
-      console.log('Sending request to Groq');
-      console.log('API_KEY exists:', !!GROQ_API_KEY);
+      console.log('Sending request to Mistral');
+      console.log('API_KEY exists:', !!MISTRAL_API_KEY);
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Authorization': `Bearer ${MISTRAL_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: 'mistral-small',
           messages,
           temperature: 0.7
         })
